@@ -81,6 +81,14 @@ Para `main` e `develop` (e `release/*` via padrão):
 - **`.github/workflows/cd.yml`** — resolve o ambiente pela branch, vincula o job
   ao **GitHub Environment** correspondente (aplicando as protection rules) e
   executa o deploy + *health check* pós-deploy.
+- **`.github/workflows/auto-pr.yml`** — ao dar `git push` de uma branch
+  `feature/**`, `fix/**`, `release/**` ou `hotfix/**`, **abre a Pull Request
+  automaticamente** (base `develop`; `release/*` e `hotfix/*` vão para `main`).
+  É idempotente (não duplica PR existente).
+
+  > Habilite uma vez: **Settings > Actions > General > Workflow permissions** →
+  > "Read and write" + marcar **"Allow GitHub Actions to create and approve pull
+  > requests"**. Sem isso, o workflow registra um *warning* em vez de criar a PR.
 
 > Segurança: nenhum segredo no repositório. Cada ambiente só enxerga os próprios
 > secrets — a credencial de produção nunca é exposta em deploys de dev/hom.
