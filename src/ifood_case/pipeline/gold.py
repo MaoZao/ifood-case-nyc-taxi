@@ -10,6 +10,7 @@ Tabelas geradas:
   - gold/agg_passageiros_hora_maio -> Q2 (média de passageiros por hora, maio)
   - gold/trips (opcional)          -> fato granular exposto via SQL/Delta
 """
+
 from __future__ import annotations
 
 import logging
@@ -68,10 +69,15 @@ def run(spark: SparkSession, cfg: Config) -> dict[str, DataFrame]:
     # Fato granular com as 5 colunas exigidas, exposto para consumo SQL ad-hoc.
     _write(
         silver.select(
-            "VendorID", "passenger_count", "total_amount",
-            "tpep_pickup_datetime", "tpep_dropoff_datetime", "trip_month",
+            "VendorID",
+            "passenger_count",
+            "total_amount",
+            "tpep_pickup_datetime",
+            "tpep_dropoff_datetime",
+            "trip_month",
         ),
-        cfg, "trips",
+        cfg,
+        "trips",
     )
     logger.info("[gold] concluída")
     return tables

@@ -1,4 +1,5 @@
 """Testes das respostas do case (Gold/analytics)."""
+
 from __future__ import annotations
 
 from ifood_case.pipeline.gold import passageiros_por_hora_maio, receita_mensal

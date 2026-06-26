@@ -9,6 +9,7 @@ Uso:
 Em produção, cada `--stage` vira uma task de um orquestrador (Airflow/Databricks
 Workflows), com dependências bronze >> silver >> gold.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -53,8 +54,7 @@ def main() -> None:
     for stage in stages:
         run_stage(stage, spark, cfg)
 
-    logger.info("Pipeline finalizado. Formato=%s | Gold em %s",
-                cfg.storage_format, cfg.paths.gold)
+    logger.info("Pipeline finalizado. Formato=%s | Gold em %s", cfg.storage_format, cfg.paths.gold)
 
 
 if __name__ == "__main__":

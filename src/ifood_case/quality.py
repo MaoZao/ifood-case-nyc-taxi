@@ -6,6 +6,7 @@ Cada `Expectation` retorna um resultado; o runner agrega tudo e levanta
 `DataQualityError` se algo crítico falhar. Usado como *gate* entre camadas:
 nenhum dado sobe para Gold sem passar pelos contratos da Silver.
 """
+
 from __future__ import annotations
 
 import logging
@@ -92,6 +93,7 @@ def run_checks(
         logger.log(level, "[DQ] %-32s %s | %s", r.name, "PASS" if r.passed else "FAIL", r.detail)
     failed = [r for r in results if not r.passed and r.critical]
     if failed and raise_on_fail:
-        raise DataQualityError(f"{len(failed)} checagem(ns) crítica(s) falharam: "
-                               f"{[r.name for r in failed]}")
+        raise DataQualityError(
+            f"{len(failed)} checagem(ns) crítica(s) falharam: " f"{[r.name for r in failed]}"
+        )
     return results

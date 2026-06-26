@@ -7,6 +7,7 @@ linhagem (arquivo de origem e timestamp de ingestão). Isso garante
 rastreabilidade e permite reprocessamento total (backfill) caso uma regra da
 Silver mude no futuro.
 """
+
 from __future__ import annotations
 
 import logging
@@ -78,9 +79,8 @@ def read_landing(spark: SparkSession, cfg: Config) -> DataFrame:
     dfs = [_read_one(spark, p) for p in paths]
     df = reduce(lambda a, b: a.unionByName(b, allowMissingColumns=True), dfs)
     df = _fix_nanos_timestamps(df, spark)
-    return (
-        df.withColumn("_source_file", F.input_file_name())
-        .withColumn("_ingested_at", F.current_timestamp())
+    return df.withColumn("_source_file", F.input_file_name()).withColumn(
+        "_ingested_at", F.current_timestamp()
     )
 
 

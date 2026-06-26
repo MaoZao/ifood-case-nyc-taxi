@@ -5,6 +5,7 @@ Mantidas separadas da orquestração de I/O para serem testáveis de forma
 unitária com SparkSession local, sem tocar em disco/cloud. Cada função faz
 uma coisa só — facilita revisão, teste e reuso.
 """
+
 from __future__ import annotations
 
 from pyspark.sql import DataFrame
