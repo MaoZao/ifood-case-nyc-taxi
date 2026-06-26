@@ -171,9 +171,11 @@ make lint     # flake8 + mypy
 make format   # black + isort
 ```
 
+
 - **Transformações puras** testadas isoladamente com SparkSession local.
 - **Gate de Data Quality**: colunas obrigatórias, sem nulos, `total_amount > 0`,
   `passenger_count > 0`, `dropoff > pickup` — nada sobe para a Gold sem passar.
+  
 - **CI** roda tudo + um *smoke test* do pipeline ponta-a-ponta a cada push/PR.
 
 ## 🔁 CI/CD & Ambientes (Dev / Hom / Prd)
