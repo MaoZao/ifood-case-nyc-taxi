@@ -6,6 +6,7 @@ pula arquivos já presentes. Sem dependência de SDK de cloud — `urllib` resol
 Para storage em nuvem, basta apontar `landing` para s3://... (o Spark grava lá
 nativamente; aqui mantemos o download simples e portável).
 """
+
 from __future__ import annotations
 
 import argparse

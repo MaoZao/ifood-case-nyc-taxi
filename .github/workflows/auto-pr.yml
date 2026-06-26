@@ -1,0 +1,72 @@
+# ============================================================================
+# Auto-PR — abre (ou atualiza) uma Pull Request automaticamente ao enviar uma
+# branch de trabalho. Assim, basta `git push` da sua feature que a PR aparece.
+#
+# Regra de destino (base):
+#   feature/** , fix/**   -> develop
+#   release/**            -> main      (promoção para produção)
+#   hotfix/**             -> main
+#
+# Pré-requisito (uma vez): criar um secret `AUTO_PR_TOKEN` com um PAT
+#   fine-grained (escopo neste repo) com permissões:
+#     - Contents: Read-only
+#     - Pull requests: Read and write
+#   Usar PAT (em vez do GITHUB_TOKEN padrão) é o que: (a) contorna o bloqueio do
+#   GitHub que impede Actions de abrir PRs e (b) faz o CI (evento pull_request)
+#   rodar na PR criada — PRs abertas pelo GITHUB_TOKEN não disparam outros
+#   workflows. Sem o secret, há fallback para github.token, mas aí a opção
+#   Settings > Actions > General > "Allow GitHub Actions to create and approve
+#   pull requests" precisa estar marcada e o CI não roda na PR.
+# ============================================================================
+name: Auto PR
+
+on:
+  push:
+    branches:
+      - "feature/**"
+      - "fix/**"
+      - "release/**"
+      - "hotfix/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Abrir ou atualizar a PR
+        env:
+          # Usa o PAT (AUTO_PR_TOKEN) quando configurado; fallback para o token padrão.
+          GH_TOKEN: ${{ secrets.AUTO_PR_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          case "$BRANCH" in
+            release/*|hotfix/*) BASE="main" ;;
+            *)                  BASE="develop" ;;
+          esac
+          echo "Branch '$BRANCH' -> base '$BASE'"
+
+          # Garante que a branch base existe antes de tentar abrir a PR.
+          if ! gh api "repos/${GITHUB_REPOSITORY}/branches/${BASE}" >/dev/null 2>&1; then
+            echo "::error::Branch base '$BASE' não existe no repositório. Crie-a (ou ajuste a regra de destino) e tente novamente."
+            exit 1
+          fi
+
+          # Idempotente: se já existe PR aberta para a branch, não duplica.
+          if gh pr view "$BRANCH" --json number --jq .number >/dev/null 2>&1; then
+            echo "PR já existe para '$BRANCH' — nada a fazer."
+            exit 0
+          fi
+
+          BODY=$(printf '🤖 PR aberta automaticamente a partir de `%s`.\n\n- **Base:** `%s`\n- CI (lint + testes + smoke) roda automaticamente nesta PR.\n- Preencha a descrição e o checklist do template antes do merge.' "$BRANCH" "$BASE")
+
+          # Falha de forma visível (execução vermelha) se a criação não funcionar.
+          if ! gh pr create --base "$BASE" --head "$BRANCH" --title "$BRANCH" --body "$BODY"; then
+            echo "::error::Não foi possível criar a PR. Verifique o secret AUTO_PR_TOKEN (PAT com 'Pull requests: write') ou a permissão de Actions para criar PRs."
+            exit 1
+          fi

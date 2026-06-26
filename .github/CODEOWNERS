@@ -1,0 +1,6 @@
+# Donos do código — exigidos como reviewers em PRs (combine com branch protection).
+# Ajuste os handles para a sua equipe/organização.
+*                   @pedro-salomao
+/src/               @pedro-salomao
+/.github/           @pedro-salomao
+/conf/              @pedro-salomao

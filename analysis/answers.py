@@ -10,6 +10,7 @@ Uso:
     python -m analysis.answers              # usa conf/pipeline.yaml
     python analysis/answers.py --export dashboard/data/kpis.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -89,15 +90,21 @@ def run(config_path: str | None, export: str | None) -> None:
     if export:
         payload = {
             "q1_receita_mensal": [
-                {"mes_num": r["trip_month"],
-                 "mes": MESES.get(r["trip_month"], str(r["trip_month"])),
-                 "corridas": r["qtd_corridas"], "receita_media_usd": r["receita_media_usd"]}
+                {
+                    "mes_num": r["trip_month"],
+                    "mes": MESES.get(r["trip_month"], str(r["trip_month"])),
+                    "corridas": r["qtd_corridas"],
+                    "receita_media_usd": r["receita_media_usd"],
+                }
                 for r in q1.collect()
             ],
             "q1_media_global_usd": media_global,
             "q2_passageiros_hora_maio": [
-                {"hora": r["pickup_hour"], "corridas": r["qtd_corridas"],
-                 "media_passageiros": r["media_passageiros"]}
+                {
+                    "hora": r["pickup_hour"],
+                    "corridas": r["qtd_corridas"],
+                    "media_passageiros": r["media_passageiros"],
+                }
                 for r in q2.collect()
             ],
         }

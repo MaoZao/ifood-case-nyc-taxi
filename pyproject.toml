@@ -16,11 +16,15 @@ where = ["src"]
 [tool.black]
 line-length = 100
 target-version = ["py39", "py310"]
+# Notebooks (.py estilo Databricks) e checkpoints do Jupyter não seguem o
+# layout de módulo; mantê-los fora do black/isort evita ruído e quebras.
+extend-exclude = '(\.ipynb_checkpoints|analysis/notebooks)'
 
 [tool.isort]
 profile = "black"
 line_length = 100
 src_paths = ["src", "tests", "analysis"]
+extend_skip_glob = ["*/.ipynb_checkpoints/*", "analysis/notebooks/*"]
 
 [tool.flake8]
 max-line-length = 100

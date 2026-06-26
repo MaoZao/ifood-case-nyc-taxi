@@ -1,4 +1,5 @@
 """Testes unitários das transformações puras da camada Silver."""
+
 from __future__ import annotations
 
 from ifood_case.config import REQUIRED_COLUMNS

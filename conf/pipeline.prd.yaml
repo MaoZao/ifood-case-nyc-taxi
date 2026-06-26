@@ -1,0 +1,23 @@
+# === Ambiente PRD / Produção (branch: main) ===================================
+# Delta Lake, dados reais, storage produtivo. Deploy só após aprovação manual no
+# GitHub Environment 'prd'. Selecionado automaticamente quando IFOOD_ENV=prd.
+env: prd
+
+months:
+  - "2023-01"
+  - "2023-02"
+  - "2023-03"
+  - "2023-04"
+  - "2023-05"
+
+base_url: "https://d37ci6vzurychx.cloudfront.net/trip-data"
+
+storage_format: delta
+partition_column: trip_month
+
+paths:
+  landing: "data/prd/landing"
+  bronze: "data/prd/bronze"
+  silver: "data/prd/silver"
+  gold: "data/prd/gold"
+  # Em nuvem: s3a://ifood-datalake-prd/{landing,bronze,silver,gold}

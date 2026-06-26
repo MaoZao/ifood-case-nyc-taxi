@@ -1,0 +1,23 @@
+# === Ambiente HOM / Homologação (branch: release/*) ===========================
+# Espelho de produção: Delta Lake, dados reais, storage próprio. Valida o release
+# antes do go-live. Selecionado automaticamente quando IFOOD_ENV=hom.
+env: hom
+
+months:
+  - "2023-01"
+  - "2023-02"
+  - "2023-03"
+  - "2023-04"
+  - "2023-05"
+
+base_url: "https://d37ci6vzurychx.cloudfront.net/trip-data"
+
+storage_format: delta        # hom = igual a prd para validar fielmente
+partition_column: trip_month
+
+paths:
+  landing: "data/hom/landing"
+  bronze: "data/hom/bronze"
+  silver: "data/hom/silver"
+  gold: "data/hom/gold"
+  # Em nuvem: s3a://ifood-datalake-hom/{landing,bronze,silver,gold}

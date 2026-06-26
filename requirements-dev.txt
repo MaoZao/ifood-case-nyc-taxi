@@ -2,8 +2,10 @@
 # Qualidade de código e testes.
 pytest>=7.4.0
 pytest-cov>=4.1.0
-black>=24.0.0
-isort>=5.12.0
+# Formatadores fixados em versão exata: o "estilo estável" do black muda a
+# cada ano (24.x vs 25.x), então pinar garante que CI e local formatem igual.
+black==25.11.0
+isort==6.1.0
 flake8>=6.1.0
 mypy>=1.8.0
 # Notebook/EDA.

@@ -1,4 +1,5 @@
 """Fixtures de teste: SparkSession local (sem Delta para rapidez) e dados-mock."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -52,7 +53,11 @@ def raw_df(spark):
         (1, 4, 55.0, ts(2023, 5, 2, 18, 0), ts(2023, 5, 2, 18, 30), "x"),  # boa (maio)
     ]
     cols = [
-        "VendorID", "passenger_count", "total_amount",
-        "tpep_pickup_datetime", "tpep_dropoff_datetime", "extra_col",
+        "VendorID",
+        "passenger_count",
+        "total_amount",
+        "tpep_pickup_datetime",
+        "tpep_dropoff_datetime",
+        "extra_col",
     ]
     return spark.createDataFrame(rows, cols)

@@ -5,6 +5,7 @@ Lê a Bronze, aplica as transformações puras (seleção de colunas exigidas,
 tipagem, limpeza, derivação temporal), roda os contratos de Data Quality como
 *gate*, e persiste em formato colunar particionado por `trip_month`.
 """
+
 from __future__ import annotations
 
 import logging
@@ -33,6 +34,7 @@ def run(spark: SparkSession, cfg: Config) -> DataFrame:
         .partitionBy(cfg.partition_column)
         .save(cfg.paths.silver)
     )
-    logger.info("[silver] gravada e particionada por %s em %s",
-                cfg.partition_column, cfg.paths.silver)
+    logger.info(
+        "[silver] gravada e particionada por %s em %s", cfg.partition_column, cfg.paths.silver
+    )
     return silver

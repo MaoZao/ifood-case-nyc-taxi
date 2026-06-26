@@ -3,6 +3,9 @@ data/landing/*
 data/bronze/
 data/silver/
 data/gold/
+data/dev/
+data/hom/
+data/prd/
 !data/.gitkeep
 *.parquet
 *.crc
@@ -39,3 +42,6 @@ htmlcov/
 
 # Notebooks de rascunho
 Untitled*.ipynb
+
+# Cowork/Claude internal
+.claude/

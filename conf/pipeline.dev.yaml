@@ -1,0 +1,23 @@
+# === Ambiente DEV (branch: develop) ===========================================
+# Iteração rápida: dados sintéticos, Parquet (sem overhead de _delta_log),
+# storage isolado por ambiente. Selecionado automaticamente quando IFOOD_ENV=dev.
+env: dev
+
+months:
+  - "2023-01"
+  - "2023-02"
+  - "2023-03"
+  - "2023-04"
+  - "2023-05"
+
+base_url: "https://d37ci6vzurychx.cloudfront.net/trip-data"
+
+storage_format: parquet      # dev prioriza velocidade de feedback
+partition_column: trip_month
+
+paths:
+  landing: "data/dev/landing"
+  bronze: "data/dev/bronze"
+  silver: "data/dev/silver"
+  gold: "data/dev/gold"
+  # Em nuvem: s3a://ifood-datalake-dev/{landing,bronze,silver,gold}

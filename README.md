@@ -171,10 +171,63 @@ make lint     # flake8 + mypy
 make format   # black + isort
 ```
 
+
 - **Transformações puras** testadas isoladamente com SparkSession local.
 - **Gate de Data Quality**: colunas obrigatórias, sem nulos, `total_amount > 0`,
   `passenger_count > 0`, `dropoff > pickup` — nada sobe para a Gold sem passar.
+  
 - **CI** roda tudo + um *smoke test* do pipeline ponta-a-ponta a cada push/PR.
+
+## 🔁 CI/CD & Ambientes (Dev / Hom / Prd)
+
+Estratégia de **branches por ambiente** com **GitHub Environments** (segredos
+isolados por ambiente, homologação espelhando produção e **aprovação manual**
+antes do go-live).
+
+| Branch | Ambiente | Deploy | Config |
+|--------|----------|--------|--------|
+| `develop` | **Dev** | automático | `conf/pipeline.dev.yaml` (Parquet) |
+| `release/*` | **Hom** | automático (pós-CI) | `conf/pipeline.hom.yaml` (Delta) |
+| `main` | **Prd** | **aprovação manual** | `conf/pipeline.prd.yaml` (Delta) |
+
+```
+feature/* ─PR→ develop ─→ DEV ─PR→ release/* ─→ HOM ─PR→ main ─aprovação→ PRD
+```
+
+O pipeline seleciona a config do ambiente automaticamente via `IFOOD_ENV`
+(injetada pelo workflow). Rodar como um ambiente específico:
+
+```bash
+IFOOD_ENV=hom python -m ifood_case.main --stage all   # usa pipeline.hom.yaml
+```
+
+- **`ci.yml`** — lint, tipos, testes e smoke test em PRs/pushes das 3 branches.
+- **`cd.yml`** — resolve a branch → vincula ao GitHub Environment (aplica as
+  *protection rules*, incl. aprovação no `prd`) → deploy + *health check*.
+- **`auto-pr.yml`** — ao dar `git push` numa branch `feature/**`, `fix/**`,
+  `release/**` ou `hotfix/**`, abre a PR automaticamente (base `develop` para
+  feature/fix; `main` para release/hotfix). Idempotente: não duplica PR.
+
+### ⚙️ Setup do Auto-PR (uma vez)
+
+Para o `auto-pr.yml` conseguir abrir a PR **e** fazer o CI rodar nela, é preciso
+um **PAT fine-grained** guardado em secret (PRs abertas pelo `GITHUB_TOKEN`
+padrão são bloqueadas e não disparam o CI):
+
+1. **Criar o PAT** — GitHub → *Settings → Developer settings → Personal access
+   tokens → Fine-grained*, com escopo neste repositório e permissões:
+   - **Contents:** Read-only
+   - **Pull requests:** Read and write
+2. **Adicionar o secret** — repo → *Settings → Secrets and variables → Actions →
+   New repository secret*, nome **`AUTO_PR_TOKEN`**, valor = o PAT.
+3. **Propagar o workflow** — branches `feature/**` novas só trazem o `auto-pr.yml`
+   se ele estiver em `develop`/`main` (de onde são cortadas); garanta o merge.
+
+> Sem o `AUTO_PR_TOKEN` há fallback para o `GITHUB_TOKEN`, mas aí é obrigatório
+> marcar *Settings → Actions → General → "Allow GitHub Actions to create and
+> approve pull requests"* — e o CI **não** roda na PR criada.
+
+📖 Setup completo (Environments, branch protection, CODEOWNERS): [`docs/cicd.md`](docs/cicd.md).
 
 ## 🧠 Decisões técnicas (ADRs)
 
@@ -183,6 +236,7 @@ make format   # black + isort
 | [001](docs/adr/ADR-001-delta-lake.md) | **Delta Lake** | ACID + Time Travel + schema evolution; fallback Parquet |
 | [002](docs/adr/ADR-002-medallion.md) | **Medallion** | Separação de responsabilidades, backfill seguro |
 | [003](docs/adr/ADR-003-partitioning.md) | **Partição por `trip_month`** | Pruning eficiente; nota sobre Z-Order/Liquid Clustering em escala |
+| [004](docs/adr/ADR-004-ambientes-git.md) | **Ambientes Dev/Hom/Prd** | Branches por ambiente + GitHub Environments, aprovação manual no prd |
 
 Detalhes completos em [`docs/architecture.md`](docs/architecture.md).
 
