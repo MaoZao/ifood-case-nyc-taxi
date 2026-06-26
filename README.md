@@ -131,6 +131,23 @@ make docker-up        # JupyterLab em http://localhost:8888 (Spark UI :4040)
 make docker-down
 ```
 
+### Opção C+ — Lakehouse no MinIO (S3 local)
+
+Grava as camadas **bronze/silver/gold no MinIO** (object storage S3-compatível),
+exercitando o conector `s3a` do Spark — o mesmo caminho de uma nuvem real, sem custo:
+
+```bash
+make cloud-up         # Spark + Jupyter + MinIO; cria o bucket ifood-lakehouse
+# dentro do container: make demo   (escreve em s3a://ifood-lakehouse/...)
+# Console do MinIO: http://localhost:9001  (login: minio / minio123)
+make docker-down
+```
+
+Como funciona: `IFOOD_ENV=cloud` seleciona [`conf/pipeline.cloud.yaml`](conf/pipeline.cloud.yaml)
+(paths `s3a://…`) e `IFOOD_S3_ENDPOINT` ativa o conector `s3a` em [`src/ifood_case/spark.py`](src/ifood_case/spark.py).
+A *landing* permanece local (download via `urllib`, portável); só o lakehouse curado
+vai para o S3. Variáveis em [`.env.example`](.env.example).
+
 ### Dashboard interativo (Streamlit)
 
 ```bash

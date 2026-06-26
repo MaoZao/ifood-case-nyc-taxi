@@ -2,7 +2,7 @@
 # iFood Case — NYC Taxi Lakehouse | atalhos de desenvolvimento
 # ============================================================================
 .PHONY: help install sample download pipeline answers dashboard test lint format \
-        docker-up docker-down jupyter clean
+        docker-up docker-down cloud-up jupyter clean
 
 help:  ## Lista os comandos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -40,6 +40,9 @@ docker-up:  ## Sobe o ambiente Docker (Spark + Jupyter em :8888)
 
 docker-down:  ## Derruba o ambiente Docker
 	docker compose down
+
+cloud-up:  ## Sobe Spark + MinIO (S3 local) e cria o bucket do lakehouse
+	IFOOD_ENV=cloud IFOOD_S3_ENDPOINT=http://minio:9000 docker compose --profile cloud up --build -d
 
 jupyter:  ## Abre o JupyterLab local
 	jupyter lab
