@@ -89,7 +89,8 @@ def run(config_path: str | None, export: str | None) -> None:
     if export:
         payload = {
             "q1_receita_mensal": [
-                {"mes_num": r["trip_month"], "mes": MESES.get(r["trip_month"], str(r["trip_month"])),
+                {"mes_num": r["trip_month"],
+                 "mes": MESES.get(r["trip_month"], str(r["trip_month"])),
                  "corridas": r["qtd_corridas"], "receita_media_usd": r["receita_media_usd"]}
                 for r in q1.collect()
             ],

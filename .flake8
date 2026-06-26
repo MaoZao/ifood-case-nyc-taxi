@@ -1,6 +1,6 @@
 [flake8]
 max-line-length = 100
 extend-ignore = E203, W503
-exclude = .git,__pycache__,data,.venv,build,dist,*.egg-info
+exclude = .git,__pycache__,data,.venv,build,dist,*.egg-info,.ipynb_checkpoints
 per-file-ignores =
-    analysis/notebooks/*.py: E402, F821, E501
+    analysis/notebooks/*.py: E402, F821, E501, E401, E702

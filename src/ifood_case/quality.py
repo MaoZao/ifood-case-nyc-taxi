@@ -43,7 +43,8 @@ def expect_columns_present(df: DataFrame) -> CheckResult:
 
 def expect_no_nulls_in_required(df: DataFrame) -> CheckResult:
     exprs = [F.sum(F.col(c).isNull().cast("int")).alias(c) for c in REQUIRED_COLUMNS]
-    row = df.select(exprs).first().asDict()
+    first = df.select(exprs).first()
+    row = first.asDict() if first else {}
     offenders = {k: v for k, v in row.items() if v and v > 0}
     return CheckResult(
         "sem_nulos_em_obrigatorias",
@@ -82,7 +83,9 @@ SILVER_CHECKS: List[Callable[[DataFrame], CheckResult]] = [
 ]
 
 
-def run_checks(df: DataFrame, checks=SILVER_CHECKS, raise_on_fail: bool = True) -> List[CheckResult]:
+def run_checks(
+    df: DataFrame, checks=SILVER_CHECKS, raise_on_fail: bool = True
+) -> List[CheckResult]:
     results = [check(df) for check in checks]
     for r in results:
         level = logging.INFO if r.passed else logging.ERROR

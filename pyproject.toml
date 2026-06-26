@@ -31,6 +31,9 @@ exclude = [".git", "__pycache__", "data", ".venv", "build"]
 python_version = "3.10"
 ignore_missing_imports = true
 warn_unused_ignores = false
+# Libs de terceiros sem stubs (PyYAML etc.): não temos como tipá-las e
+# instalar os stubs exigiria rede — silenciamos só o aviso de "sem stubs".
+disable_error_code = ["import-untyped"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]

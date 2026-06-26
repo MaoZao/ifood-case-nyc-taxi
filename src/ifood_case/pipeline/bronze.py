@@ -48,7 +48,7 @@ def _fix_nanos_timestamps(df: DataFrame, spark: SparkSession) -> DataFrame:
     Só toca colunas de data/hora que vieram como ``long`` — dados sintéticos
     (timestamps em micros) passam intactos, assim como demais colunas inteiras.
     """
-    session_tz = spark.conf.get("spark.sql.session.timeZone", "UTC")
+    session_tz = spark.conf.get("spark.sql.session.timeZone") or "UTC"
     for fld in df.schema.fields:
         if "datetime" in fld.name.lower() and isinstance(fld.dataType, LongType):
             micros = (F.col(fld.name) / 1000).cast("long")
