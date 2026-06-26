@@ -1,0 +1,54 @@
+# ============================================================================
+# Auto-PR — abre (ou atualiza) uma Pull Request automaticamente ao enviar uma
+# branch de trabalho. Assim, basta `git push` da sua feature que a PR aparece.
+#
+# Regra de destino (base):
+#   feature/** , fix/**   -> develop
+#   release/**            -> main      (promoção para produção)
+#   hotfix/**             -> main
+#
+# Pré-requisito (uma vez): Settings > Actions > General > Workflow permissions
+#   -> marcar "Allow GitHub Actions to create and approve pull requests".
+# ============================================================================
+name: Auto PR
+
+on:
+  push:
+    branches:
+      - "feature/**"
+      - "fix/**"
+      - "release/**"
+      - "hotfix/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Abrir ou atualizar a PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          case "$BRANCH" in
+            release/*|hotfix/*) BASE="main" ;;
+            *)                  BASE="develop" ;;
+          esac
+          echo "Branch '$BRANCH' -> base '$BASE'"
+
+          # Idempotente: se já existe PR aberta para a branch, não duplica.
+          if gh pr view "$BRANCH" --json number --jq .number >/dev/null 2>&1; then
+            echo "PR já existe para '$BRANCH' — nada a fazer."
+            exit 0
+          fi
+
+          BODY=$(printf '🤖 PR aberta automaticamente a partir de `%s`.\n\n- **Base:** `%s`\n- CI (lint + testes + smoke) roda automaticamente nesta PR.\n- Preencha a descrição e o checklist do template antes do merge.' "$BRANCH" "$BASE")
+
+          gh pr create --base "$BASE" --head "$BRANCH" \
+            --title "$BRANCH" --body "$BODY" \
+          || echo "::warning::Não foi possível criar a PR. Verifique a permissão de Actions para criar PRs."
