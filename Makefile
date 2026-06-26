@@ -2,7 +2,7 @@
 # iFood Case — NYC Taxi Lakehouse | atalhos de desenvolvimento
 # ============================================================================
 .PHONY: help install sample download pipeline answers dashboard test lint format \
-        docker-up docker-down cloud-up jupyter clean
+        docker-up docker-down cloud-up cloud-pipeline cloud-demo cloud-real jupyter clean
 
 help:  ## Lista os comandos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -43,6 +43,19 @@ docker-down:  ## Derruba o ambiente Docker
 
 cloud-up:  ## Sobe Spark + MinIO (S3 local) e cria o bucket do lakehouse
 	docker compose -f docker-compose.yml -f docker-compose.cloud.yml --profile cloud up --build -d
+
+# IMPORTANTE: o pipeline só grava no MinIO quando roda DENTRO do container
+# ifood-spark (lá IFOOD_ENV=cloud). Rodar `make pipeline` no host usa a config
+# local e grava em data/. Os alvos abaixo garantem a execução no container.
+cloud-pipeline:  ## Pipeline (bronze->silver->gold) no container -> grava no MinIO
+	docker exec ifood-spark make pipeline
+
+cloud-demo:  ## Amostra sintética + pipeline + respostas no container -> MinIO
+	docker exec ifood-spark make demo
+
+cloud-real:  ## Baixa dados REAIS do NYC TLC + pipeline no container -> MinIO
+	docker exec ifood-spark make download
+	docker exec ifood-spark make pipeline
 
 jupyter:  ## Abre o JupyterLab local
 	jupyter lab
