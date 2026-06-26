@@ -1,0 +1,102 @@
+# ============================================================================
+# CD — Deploy contínuo por ambiente (Dev / Hom / Prd)
+#
+# Mapeamento branch -> ambiente:
+#   develop      -> dev   (deploy automático)
+#   release/**   -> hom   (deploy automático após CI)
+#   main         -> prd   (deploy com APROVAÇÃO MANUAL no GitHub Environment)
+#
+# Os GitHub Environments (Settings > Environments) carregam:
+#   - secrets/vars próprios de cada ambiente (ex.: AWS_*, DATABRICKS_*);
+#   - required reviewers no 'prd' (gate de aprovação);
+#   - opcional: branch restrictions e wait timer.
+# Ver docs/cicd.md para a configuração completa.
+# ============================================================================
+name: CD
+
+on:
+  push:
+    branches: [develop, "release/**", main]
+  workflow_dispatch:        # permite deploy manual sob demanda
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # -------- 1. Resolve qual ambiente este push representa --------------------
+  resolve-env:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.map.outputs.environment }}
+    steps:
+      - id: map
+        run: |
+          REF="${GITHUB_REF#refs/heads/}"
+          if [ "$REF" = "main" ]; then ENV=prd
+          elif [[ "$REF" == release/* ]]; then ENV=hom
+          elif [ "$REF" = "develop" ]; then ENV=dev
+          else ENV=dev
+          fi
+          echo "environment=$ENV" >> "$GITHUB_OUTPUT"
+          echo "Branch '$REF' -> ambiente '$ENV'"
+
+  # -------- 2. Deploy (gated pelo GitHub Environment) ------------------------
+  deploy:
+    needs: resolve-env
+    runs-on: ubuntu-latest
+    # Vincula o job ao Environment -> aplica protection rules (aprovação no prd).
+    environment:
+      name: ${{ needs.resolve-env.outputs.environment }}
+    env:
+      IFOOD_ENV: ${{ needs.resolve-env.outputs.environment }}
+      # Secrets/vars são resolvidos do Environment selecionado acima:
+      # AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      # DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "11"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt && pip install -e .
+
+      - name: Mostrar configuração efetiva do ambiente
+        run: |
+          echo "Deploy para ambiente: $IFOOD_ENV"
+          python -c "from ifood_case.config import resolve_config_path, load_config; \
+            p=resolve_config_path(); c=load_config(); \
+            print('config:', p); print('formato:', c.storage_format); print('paths:', c.paths)"
+
+      # No case, executamos o pipeline como 'deploy' do ambiente. Em produção
+      # real, este passo viraria: publicar artefato, atualizar job no Databricks
+      # Workflows / Airflow, ou aplicar Terraform da infra do ambiente.
+      - name: Executar pipeline no ambiente
+        run: |
+          python scripts/generate_sample_data.py --out "data/${IFOOD_ENV}/landing" --scale 0.02
+          python -m ifood_case.main --stage all
+          python analysis/answers.py --export "dashboard/data/kpis.json"
+
+      - name: Health check pós-deploy
+        run: |
+          test -s dashboard/data/kpis.json
+          python - <<'PY'
+          import json
+          d = json.load(open("dashboard/data/kpis.json"))
+          assert d["q1_media_global_usd"] > 0, "KPI inválido"
+          assert len(d["q2_passageiros_hora_maio"]) == 24, "esperado 24 horas"
+          print("Health check OK:", d["q1_media_global_usd"])
+          PY
+
+      - name: Resumo do deploy
+        run: echo "✅ Deploy concluído em '${IFOOD_ENV}' (ref ${GITHUB_REF#refs/heads/})."

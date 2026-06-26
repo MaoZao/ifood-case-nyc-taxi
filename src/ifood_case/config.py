@@ -6,6 +6,7 @@ vive aqui, carregado de `conf/pipeline.yaml` com override por variáveis de
 ambiente. Assim o mesmo código roda em local, Docker (MinIO/S3) e Databricks
 sem alteração — só muda a configuração.
 """
+
 from __future__ import annotations
 
 import os
@@ -24,7 +25,29 @@ REQUIRED_COLUMNS: List[str] = [
     "tpep_dropoff_datetime",
 ]
 
-DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[2] / "conf" / "pipeline.yaml"
+CONF_DIR = Path(__file__).resolve().parents[2] / "conf"
+DEFAULT_CONFIG_PATH = CONF_DIR / "pipeline.yaml"
+
+
+def resolve_config_path() -> Path:
+    """Resolve qual YAML usar, nesta ordem de precedência:
+
+    1. IFOOD_CONFIG (caminho explícito);
+    2. conf/pipeline.<IFOOD_ENV>.yaml  (ex.: dev/hom/prd) — overlay por ambiente;
+    3. conf/pipeline.yaml              (base/local).
+
+    Isso é o que liga o pipeline à estratégia de 3 ambientes: o mesmo código,
+    selecionando a config certa via a variável IFOOD_ENV injetada pelo CI/CD.
+    """
+    explicit = os.getenv("IFOOD_CONFIG")
+    if explicit:
+        return Path(explicit)
+    env = os.getenv("IFOOD_ENV")
+    if env:
+        candidate = CONF_DIR / f"pipeline.{env}.yaml"
+        if candidate.exists():
+            return candidate
+    return DEFAULT_CONFIG_PATH
 
 
 @dataclass
@@ -40,7 +63,7 @@ class Config:
     months: List[str]
     base_url: str
     paths: Paths
-    storage_format: str = "delta"          # delta | parquet
+    storage_format: str = "delta"  # delta | parquet
     partition_column: str = "trip_month"
     env: str = "local"
 
@@ -55,7 +78,7 @@ def _expand(value: str) -> str:
 
 
 def load_config(path: str | os.PathLike | None = None) -> Config:
-    cfg_path = Path(path) if path else Path(os.getenv("IFOOD_CONFIG", DEFAULT_CONFIG_PATH))
+    cfg_path = Path(path) if path else resolve_config_path()
     with open(cfg_path, "r", encoding="utf-8") as fh:
         raw = yaml.safe_load(fh)
 

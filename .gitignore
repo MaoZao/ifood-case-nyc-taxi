@@ -3,6 +3,9 @@ data/landing/*
 data/bronze/
 data/silver/
 data/gold/
+data/dev/
+data/hom/
+data/prd/
 !data/.gitkeep
 *.parquet
 *.crc
