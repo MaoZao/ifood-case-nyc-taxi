@@ -1,0 +1,8 @@
+# Override do modo CLOUD (MinIO/S3). Aplique junto do compose base:
+#   docker compose -f docker-compose.yml -f docker-compose.cloud.yml --profile cloud up
+# (ou simplesmente `make cloud-up`). Cross-platform — sem variáveis inline de shell.
+services:
+  spark:
+    environment:
+      - IFOOD_ENV=cloud
+      - IFOOD_S3_ENDPOINT=http://minio:9000

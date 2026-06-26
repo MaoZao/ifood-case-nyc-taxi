@@ -42,7 +42,7 @@ docker-down:  ## Derruba o ambiente Docker
 	docker compose down
 
 cloud-up:  ## Sobe Spark + MinIO (S3 local) e cria o bucket do lakehouse
-	IFOOD_ENV=cloud IFOOD_S3_ENDPOINT=http://minio:9000 docker compose --profile cloud up --build -d
+	docker compose -f docker-compose.yml -f docker-compose.cloud.yml --profile cloud up --build -d
 
 jupyter:  ## Abre o JupyterLab local
 	jupyter lab
