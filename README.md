@@ -204,6 +204,28 @@ IFOOD_ENV=hom python -m ifood_case.main --stage all   # usa pipeline.hom.yaml
 - **`ci.yml`** — lint, tipos, testes e smoke test em PRs/pushes das 3 branches.
 - **`cd.yml`** — resolve a branch → vincula ao GitHub Environment (aplica as
   *protection rules*, incl. aprovação no `prd`) → deploy + *health check*.
+- **`auto-pr.yml`** — ao dar `git push` numa branch `feature/**`, `fix/**`,
+  `release/**` ou `hotfix/**`, abre a PR automaticamente (base `develop` para
+  feature/fix; `main` para release/hotfix). Idempotente: não duplica PR.
+
+### ⚙️ Setup do Auto-PR (uma vez)
+
+Para o `auto-pr.yml` conseguir abrir a PR **e** fazer o CI rodar nela, é preciso
+um **PAT fine-grained** guardado em secret (PRs abertas pelo `GITHUB_TOKEN`
+padrão são bloqueadas e não disparam o CI):
+
+1. **Criar o PAT** — GitHub → *Settings → Developer settings → Personal access
+   tokens → Fine-grained*, com escopo neste repositório e permissões:
+   - **Contents:** Read-only
+   - **Pull requests:** Read and write
+2. **Adicionar o secret** — repo → *Settings → Secrets and variables → Actions →
+   New repository secret*, nome **`AUTO_PR_TOKEN`**, valor = o PAT.
+3. **Propagar o workflow** — branches `feature/**` novas só trazem o `auto-pr.yml`
+   se ele estiver em `develop`/`main` (de onde são cortadas); garanta o merge.
+
+> Sem o `AUTO_PR_TOKEN` há fallback para o `GITHUB_TOKEN`, mas aí é obrigatório
+> marcar *Settings → Actions → General → "Allow GitHub Actions to create and
+> approve pull requests"* — e o CI **não** roda na PR criada.
 
 📖 Setup completo (Environments, branch protection, CODEOWNERS): [`docs/cicd.md`](docs/cicd.md).
 
