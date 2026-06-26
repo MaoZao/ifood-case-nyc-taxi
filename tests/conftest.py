@@ -26,8 +26,6 @@ def spark() -> SparkSession:
     spark.stop()
 
 
-
-
 @pytest.fixture
 def raw_df(spark):
     """Mini dataset com sujeira proposital para exercitar a limpeza:
