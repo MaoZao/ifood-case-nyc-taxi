@@ -42,3 +42,6 @@ htmlcov/
 
 # Notebooks de rascunho
 Untitled*.ipynb
+
+# Cowork/Claude internal
+.claude/
