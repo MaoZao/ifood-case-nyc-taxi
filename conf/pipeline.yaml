@@ -1,0 +1,27 @@
+# Configuração do pipeline NYC Taxi (Medallion).
+# Tudo aqui pode ser sobrescrito por variável de ambiente (ver src/config.py),
+# o que permite o mesmo código rodar em local, Docker (MinIO/S3) e Databricks.
+
+env: local
+
+# Janela contratada pelo case.
+months:
+  - "2023-01"
+  - "2023-02"
+  - "2023-03"
+  - "2023-04"
+  - "2023-05"
+
+# Fonte oficial dos dados (CloudFront do NYC TLC).
+base_url: "https://d37ci6vzurychx.cloudfront.net/trip-data"
+
+# delta (recomendado, ACID + time travel) ou parquet (fallback portátil).
+storage_format: delta
+partition_column: trip_month
+
+# Caminhos das camadas. Para nuvem, troque por s3a://bucket/... ou dbfs:/...
+paths:
+  landing: "data/landing"
+  bronze: "data/bronze"
+  silver: "data/silver"
+  gold: "data/gold"

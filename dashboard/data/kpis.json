@@ -1,0 +1,157 @@
+{
+  "q1_receita_mensal": [
+    {
+      "mes_num": 1,
+      "mes": "Jan",
+      "corridas": 2917184,
+      "receita_media_usd": 27.46
+    },
+    {
+      "mes_num": 2,
+      "mes": "Fev",
+      "corridas": 2763721,
+      "receita_media_usd": 27.37
+    },
+    {
+      "mes_num": 3,
+      "mes": "Mar",
+      "corridas": 3226472,
+      "receita_media_usd": 28.29
+    },
+    {
+      "mes_num": 4,
+      "mes": "Abr",
+      "corridas": 3109431,
+      "receita_media_usd": 28.78
+    },
+    {
+      "mes_num": 5,
+      "mes": "Mai",
+      "corridas": 3318956,
+      "receita_media_usd": 29.45
+    }
+  ],
+  "q1_media_global_usd": 28.32,
+  "q2_passageiros_hora_maio": [
+    {
+      "hora": 0,
+      "corridas": 88546,
+      "media_passageiros": 1.427
+    },
+    {
+      "hora": 1,
+      "corridas": 57498,
+      "media_passageiros": 1.438
+    },
+    {
+      "hora": 2,
+      "corridas": 37000,
+      "media_passageiros": 1.455
+    },
+    {
+      "hora": 3,
+      "corridas": 24072,
+      "media_passageiros": 1.452
+    },
+    {
+      "hora": 4,
+      "corridas": 15723,
+      "media_passageiros": 1.405
+    },
+    {
+      "hora": 5,
+      "corridas": 18177,
+      "media_passageiros": 1.285
+    },
+    {
+      "hora": 6,
+      "corridas": 45417,
+      "media_passageiros": 1.261
+    },
+    {
+      "hora": 7,
+      "corridas": 91684,
+      "media_passageiros": 1.282
+    },
+    {
+      "hora": 8,
+      "corridas": 125366,
+      "media_passageiros": 1.296
+    },
+    {
+      "hora": 9,
+      "corridas": 140776,
+      "media_passageiros": 1.312
+    },
+    {
+      "hora": 10,
+      "corridas": 153447,
+      "media_passageiros": 1.348
+    },
+    {
+      "hora": 11,
+      "corridas": 167193,
+      "media_passageiros": 1.362
+    },
+    {
+      "hora": 12,
+      "corridas": 180291,
+      "media_passageiros": 1.376
+    },
+    {
+      "hora": 13,
+      "corridas": 184429,
+      "media_passageiros": 1.385
+    },
+    {
+      "hora": 14,
+      "corridas": 200539,
+      "media_passageiros": 1.39
+    },
+    {
+      "hora": 15,
+      "corridas": 204830,
+      "media_passageiros": 1.402
+    },
+    {
+      "hora": 16,
+      "corridas": 204969,
+      "media_passageiros": 1.399
+    },
+    {
+      "hora": 17,
+      "corridas": 223933,
+      "media_passageiros": 1.39
+    },
+    {
+      "hora": 18,
+      "corridas": 237954,
+      "media_passageiros": 1.384
+    },
+    {
+      "hora": 19,
+      "corridas": 213664,
+      "media_passageiros": 1.392
+    },
+    {
+      "hora": 20,
+      "corridas": 189897,
+      "media_passageiros": 1.401
+    },
+    {
+      "hora": 21,
+      "corridas": 194097,
+      "media_passageiros": 1.42
+    },
+    {
+      "hora": 22,
+      "corridas": 179463,
+      "media_passageiros": 1.428
+    },
+    {
+      "hora": 23,
+      "corridas": 139991,
+      "media_passageiros": 1.423
+    }
+  ]
+}

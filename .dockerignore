@@ -1,0 +1,15 @@
+data/
+.git/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+.ipynb_checkpoints/
+spark-warehouse/
+metastore_db/
+*.md
+!README.md

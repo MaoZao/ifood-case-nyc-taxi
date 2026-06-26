@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>iFood · NYC Taxi Lakehouse — Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ifood:#EA1D2C; --ifood-dark:#B71522; --ink:#1a1a1f; --panel:#ffffff;
+    --bg:#f4f5f7; --muted:#6b7280; --line:#e8e9ee; --good:#119C55;
+    --grad: linear-gradient(135deg,#EA1D2C 0%,#FF5A5F 100%);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 22px 64px}
+  header.hero{background:var(--grad);color:#fff;border-radius:20px;padding:30px 34px;
+    box-shadow:0 14px 40px rgba(234,29,44,.28);position:relative;overflow:hidden}
+  header.hero::after{content:"";position:absolute;right:-60px;top:-60px;width:240px;height:240px;
+    background:rgba(255,255,255,.10);border-radius:50%}
+  header.hero::before{content:"";position:absolute;right:60px;bottom:-90px;width:180px;height:180px;
+    background:rgba(255,255,255,.08);border-radius:50%}
+  .badge{display:inline-block;background:rgba(255,255,255,.18);padding:5px 12px;border-radius:999px;
+    font-size:12px;font-weight:600;letter-spacing:.4px;margin-bottom:14px}
+  header.hero h1{font-size:30px;font-weight:800;letter-spacing:-.5px}
+  header.hero p{opacity:.92;margin-top:8px;font-size:15px;max-width:680px}
+  .sub{display:flex;gap:18px;margin-top:18px;flex-wrap:wrap;font-size:13px;opacity:.95}
+  .sub b{font-weight:700}
+  .grid{display:grid;gap:18px;margin-top:22px}
+  .kpis{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:840px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 22px;
+    box-shadow:0 2px 10px rgba(20,20,40,.04)}
+  .kpi .label{font-size:12.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .kpi .value{font-size:32px;font-weight:800;margin-top:6px;color:var(--ink)}
+  .kpi .value small{font-size:16px;color:var(--muted);font-weight:600}
+  .kpi .foot{font-size:12.5px;margin-top:6px;color:var(--good);font-weight:600}
+  .kpi .foot.neutral{color:var(--muted)}
+  .panel-row{grid-template-columns:1.25fr 1fr}
+  @media(max-width:840px){.panel-row{grid-template-columns:1fr}}
+  .card h3{font-size:16px;font-weight:700;margin-bottom:2px;display:flex;align-items:center;gap:8px}
+  .card h3 .q{background:var(--ifood);color:#fff;font-size:11px;font-weight:800;border-radius:6px;
+    padding:2px 7px;letter-spacing:.3px}
+  .card .hint{font-size:12.5px;color:var(--muted);margin-bottom:14px}
+  .chart-box{position:relative;height:300px}
+  .full{grid-template-columns:1fr}
+  .heat{display:grid;grid-template-columns:repeat(24,1fr);gap:4px;margin-top:6px}
+  .heat .cell{aspect-ratio:1/1.4;border-radius:5px;position:relative;cursor:default;
+    transition:transform .12s}
+  .heat .cell:hover{transform:scale(1.12);outline:2px solid var(--ink)}
+  .heat .hrow{display:contents}
+  .hlabels{display:grid;grid-template-columns:repeat(24,1fr);gap:4px;margin-top:6px;
+    font-size:10px;color:var(--muted);text-align:center}
+  .legend{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-top:14px}
+  .legend .scale{display:flex;height:10px;width:160px;border-radius:5px;overflow:hidden}
+  .insight{background:#fff6f6;border-left:4px solid var(--ifood);border-radius:0 10px 10px 0;
+    padding:12px 16px;font-size:13.5px;margin-top:14px;color:#5a1118}
+  footer{margin-top:30px;font-size:12px;color:var(--muted);text-align:center}
+  .tag{display:inline-block;background:#eef0f3;border-radius:6px;padding:2px 8px;font-size:11px;
+    color:#444;font-weight:600;margin:0 3px}
+  table.mini{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+  table.mini th,table.mini td{text-align:right;padding:7px 8px;border-bottom:1px solid var(--line)}
+  table.mini th:first-child,table.mini td:first-child{text-align:left}
+  table.mini th{color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <span class="badge">CASE TÉCNICO · DATA ARCHITECT</span>
+    <h1>NYC Yellow Taxi · Data Lakehouse</h1>
+    <p>Ingestão, modelagem e analytics sobre as corridas de táxi de Nova York
+       (Jan–Mai 2023) numa arquitetura <b>Medallion</b> com PySpark + Delta Lake.</p>
+    <div class="sub">
+      <span>🗓️ <b id="periodo">—</b></span>
+      <span>🧹 <b id="linhas">—</b> linhas válidas na camada Silver</span>
+      <span>🗑️ <b id="descartado">—</b> descartado na limpeza</span>
+    </div>
+  </header>
+
+  <section class="grid kpis">
+    <div class="card kpi">
+      <div class="label">Receita média / corrida</div>
+      <div class="value" id="kpi-global">—</div>
+      <div class="foot neutral">média global Jan–Mai</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">Pico de ticket médio</div>
+      <div class="value" id="kpi-peak">—</div>
+      <div class="foot" id="kpi-peak-foot">—</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">Passageiros / corrida (mai)</div>
+      <div class="value" id="kpi-pax">—</div>
+      <div class="foot neutral">média do mês de maio</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">Corridas processadas</div>
+      <div class="value" id="kpi-trips">—</div>
+      <div class="foot neutral">após limpeza de qualidade</div>
+    </div>
+  </section>
+
+  <section class="grid panel-row">
+    <div class="card">
+      <h3><span class="q">Q1</span> Receita média por mês</h3>
+      <div class="hint">Média de <code>total_amount</code> por corrida, toda a frota yellow. Linha tracejada = média global.</div>
+      <div class="chart-box"><canvas id="chartRevenue"></canvas></div>
+      <div class="insight" id="insight1">—</div>
+    </div>
+    <div class="card">
+      <h3>Volume &amp; ticket</h3>
+      <div class="hint">Tabela-resumo da camada Gold (<code>agg_receita_mensal</code>).</div>
+      <table class="mini">
+        <thead><tr><th>Mês</th><th>Corridas</th><th>Receita média</th></tr></thead>
+        <tbody id="tbody-q1"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="grid full">
+    <div class="card">
+      <h3><span class="q">Q2</span> Passageiros por hora do dia — Maio</h3>
+      <div class="hint">Média de <code>passenger_count</code> por hora de embarque (área) e volume de corridas como proxy de demanda (barras).</div>
+      <div class="chart-box" style="height:320px"><canvas id="chartHourly"></canvas></div>
+      <div class="insight" id="insight2">—</div>
+    </div>
+  </section>
+
+  <section class="grid full">
+    <div class="card">
+      <h3>Mapa de calor da demanda — 24h (Maio)</h3>
+      <div class="hint">Intensidade = volume de corridas por hora. Revela os vales da madrugada e os picos do fim de tarde.</div>
+      <div class="heat" id="heat"></div>
+      <div class="hlabels" id="hlabels"></div>
+      <div class="legend">menos <span class="scale" id="legendScale"></span> mais demanda</div>
+    </div>
+  </section>
+
+  <footer>
+    Camada de consumo: <span class="tag">Delta Lake</span><span class="tag">Spark SQL</span><span class="tag">PySpark</span>
+    · Dados: NYC TLC Trip Records · <span id="nota"></span>
+  </footer>
+</div>
+
+<script>
+// Dados embutidos (funciona via file://). Se kpis.json existir ao lado, ele
+// sobrescreve estes valores — basta servir a pasta.
+const EMBEDDED = {
+  "meta": {
+    "linhas_landing": 811426,
+    "linhas_silver": 742636,
+    "taxa_descartada_pct": 8.48,
+    "periodo": "2023-01 a 2023-05",
+    "nota": "Numeros de um SAMPLE sintetico fiel ao schema; regenere com dados reais via o pipeline."
+  },
+  "q1_receita_mensal": [
+    {
+      "mes_num": 1,
+      "mes": "Jan",
+      "corridas": 140876,
+      "receita_media_usd": 26.25
+    },
+    {
+      "mes_num": 2,
+      "mes": "Fev",
+      "corridas": 133434,
+      "receita_media_usd": 26.7
+    },
+    {
+      "mes_num": 3,
+      "mes": "Mar",
+      "corridas": 156030,
+      "receita_media_usd": 27.41
+    },
+    {
+      "mes_num": 4,
+      "mes": "Abr",
+      "corridas": 151232,
+      "receita_media_usd": 28.05
+    },
+    {
+      "mes_num": 5,
+      "mes": "Mai",
+      "corridas": 161064,
+      "receita_media_usd": 29.0
+    }
+  ],
+  "q1_media_global_usd": 27.54,
+  "q2_passageiros_hora_maio": [
+    {
+      "hora": 0,
+      "corridas": 2913,
+      "media_passageiros": 1.619
+    },
+    {
+      "hora": 1,
+      "corridas": 1979,
+      "media_passageiros": 1.634
+    },
+    {
+      "hora": 2,
+      "corridas": 1331,
+      "media_passageiros": 1.716
+    },
+    {
+      "hora": 3,
+      "corridas": 990,
+      "media_passageiros": 1.648
+    },
+    {
+      "hora": 4,
+      "corridas": 1007,
+      "media_passageiros": 1.566
+    },
+    {
+      "hora": 5,
+      "corridas": 1692,
+      "media_passageiros": 1.621
+    },
+    {
+      "hora": 6,
+      "corridas": 3301,
+      "media_passageiros": 1.633
+    },
+    {
+      "hora": 7,
+      "corridas": 5703,
+      "media_passageiros": 1.622
+    },
+    {
+      "hora": 8,
+      "corridas": 8079,
+      "media_passageiros": 1.626
+    },
+    {
+      "hora": 9,
+      "corridas": 8498,
+      "media_passageiros": 1.634
+    },
+    {
+      "hora": 10,
+      "corridas": 7921,
+      "media_passageiros": 1.644
+    },
+    {
+      "hora": 11,
+      "corridas": 8223,
+      "media_passageiros": 1.651
+    },
+    {
+      "hora": 12,
+      "corridas": 8564,
+      "media_passageiros": 1.66
+    },
+    {
+      "hora": 13,
+      "corridas": 8668,
+      "media_passageiros": 1.639
+    },
+    {
+      "hora": 14,
+      "corridas": 8799,
+      "media_passageiros": 1.663
+    },
+    {
+      "hora": 15,
+      "corridas": 9619,
+      "media_passageiros": 1.627
+    },
+    {
+      "hora": 16,
+      "corridas": 10124,
+      "media_passageiros": 1.642
+    },
+    {
+      "hora": 17,
+      "corridas": 11555,
+      "media_passageiros": 1.652
+    },
+    {
+      "hora": 18,
+      "corridas": 11945,
+      "media_passageiros": 1.647
+    },
+    {
+      "hora": 19,
+      "corridas": 10674,
+      "media_passageiros": 1.64
+    },
+    {
+      "hora": 20,
+      "corridas": 9646,
+      "media_passageiros": 1.642
+    },
+    {
+      "hora": 21,
+      "corridas": 8236,
+      "media_passageiros": 1.635
+    },
+    {
+      "hora": 22,
+      "corridas": 6739,
+      "media_passageiros": 1.646
+    },
+    {
+      "hora": 23,
+      "corridas": 4858,
+      "media_passageiros": 1.643
+    }
+  ]
+};
+
+const ifood="#EA1D2C", ifoodSoft="rgba(234,29,44,.12)", grey="#c7ccd4";
+const fmtUSD = v => "$"+Number(v).toFixed(2);
+
+function heatColor(t){ // t in [0,1] -> branco->vermelho iFood
+  const r=Math.round(255-(255-234)*t), g=Math.round(245-(245-29)*t), b=Math.round(245-(245-44)*t);
+  return `rgb(${r},${g},${b})`;
+}
+
+function render(data){
+  const m=data.meta||{};
+  document.getElementById("periodo").textContent=m.periodo||"2023-01 a 2023-05";
+  document.getElementById("linhas").textContent=(m.linhas_silver||0).toLocaleString("pt-BR");
+  document.getElementById("descartado").textContent=(m.taxa_descartada_pct||0)+"%";
+  document.getElementById("nota").textContent=m.nota||"";
+
+  const q1=data.q1_receita_mensal, q2=data.q2_passageiros_hora_maio;
+  const peak=q1.reduce((a,b)=>b.receita_media_usd>a.receita_media_usd?b:a);
+  const paxMay = q2.reduce((s,h)=>s+h.media_passageiros*h.corridas,0)/q2.reduce((s,h)=>s+h.corridas,0);
+  const totalTrips=q1.reduce((s,r)=>s+r.corridas,0);
+
+  document.getElementById("kpi-global").innerHTML=fmtUSD(data.q1_media_global_usd);
+  document.getElementById("kpi-peak").innerHTML=fmtUSD(peak.receita_media_usd);
+  document.getElementById("kpi-peak-foot").textContent="em "+peak.mes;
+  document.getElementById("kpi-pax").innerHTML=paxMay.toFixed(2)+" <small>pax</small>";
+  document.getElementById("kpi-trips").textContent=totalTrips.toLocaleString("pt-BR");
+
+  // Tabela Q1
+  document.getElementById("tbody-q1").innerHTML=q1.map(r=>
+    `<tr><td>${r.mes}</td><td>${r.corridas.toLocaleString("pt-BR")}</td><td>${fmtUSD(r.receita_media_usd)}</td></tr>`).join("");
+
+  // Insights
+  const growth=((q1[q1.length-1].receita_media_usd/q1[0].receita_media_usd-1)*100).toFixed(1);
+  document.getElementById("insight1").innerHTML=
+    `📈 O ticket médio cresceu <b>${growth}%</b> de ${q1[0].mes} a ${q1[q1.length-1].mes} — sinal de sazonalidade/reajuste, insumo direto para previsão de receita.`;
+  const hPeak=q2.reduce((a,b)=>b.media_passageiros>a.media_passageiros?b:a);
+  const hLow=q2.reduce((a,b)=>b.media_passageiros<a.media_passageiros?b:a);
+  document.getElementById("insight2").innerHTML=
+    `👥 Ocupação estável (~${paxMay.toFixed(2)} pax). Pico às <b>${hPeak.hora}h</b> (${hPeak.media_passageiros}) e mínimo às <b>${hLow.hora}h</b> (${hLow.media_passageiros}); o volume de corridas dispara no fim de tarde — base para dimensionamento de frota e pricing dinâmico.`;
+
+  // Chart Q1
+  new Chart(document.getElementById("chartRevenue"),{
+    type:"bar",
+    data:{labels:q1.map(r=>r.mes),datasets:[{
+      label:"Receita média (US$)",data:q1.map(r=>r.receita_media_usd),
+      backgroundColor:ifood,borderRadius:8,maxBarThickness:54}]},
+    options:{plugins:{legend:{display:false},
+      annotation:false,
+      tooltip:{callbacks:{label:c=>"Receita média: "+fmtUSD(c.raw)}}},
+      scales:{y:{beginAtZero:false,ticks:{callback:v=>"$"+v}},x:{grid:{display:false}}}}
+  });
+  // Linha média global manual
+  const avg=data.q1_media_global_usd;
+  const ctxR=document.getElementById("chartRevenue");
+  Chart.register({id:"avgline",afterDraw(c){
+    const {ctx,chartArea:{left,right},scales:{y}}=c; const yy=y.getPixelForValue(avg);
+    ctx.save();ctx.strokeStyle="#333";ctx.setLineDash([6,5]);ctx.beginPath();
+    ctx.moveTo(left,yy);ctx.lineTo(right,yy);ctx.stroke();
+    ctx.setLineDash([]);ctx.fillStyle="#333";ctx.font="11px sans-serif";
+    ctx.fillText("média "+fmtUSD(avg),left+6,yy-5);ctx.restore();}});
+
+  // Chart Q2 (combo)
+  const maxTrips=Math.max(...q2.map(h=>h.corridas));
+  new Chart(document.getElementById("chartHourly"),{
+    data:{labels:q2.map(h=>h.hora+"h"),
+      datasets:[
+        {type:"bar",label:"Corridas (demanda)",data:q2.map(h=>h.corridas),
+         backgroundColor:ifoodSoft,borderRadius:4,yAxisID:"y1",order:2},
+        {type:"line",label:"Média de passageiros",data:q2.map(h=>h.media_passageiros),
+         borderColor:ifood,backgroundColor:"rgba(234,29,44,.10)",fill:true,tension:.35,
+         pointRadius:3,pointBackgroundColor:ifood,yAxisID:"y",order:1}
+      ]},
+    options:{interaction:{mode:"index",intersect:false},
+      plugins:{legend:{position:"top",labels:{usePointStyle:true,boxWidth:8}}},
+      scales:{
+        y:{position:"left",title:{display:true,text:"passageiros / corrida"},
+           min:1.4,suggestedMax:1.8},
+        y1:{position:"right",grid:{drawOnChartArea:false},
+            title:{display:true,text:"nº de corridas"},beginAtZero:true},
+        x:{grid:{display:false}}}}
+  });
+
+  // Heatmap
+  const heat=document.getElementById("heat"), hl=document.getElementById("hlabels");
+  heat.innerHTML="";hl.innerHTML="";
+  q2.forEach(h=>{
+    const t=h.corridas/maxTrips;
+    const c=document.createElement("div");
+    c.className="cell";c.style.background=heatColor(t);
+    c.title=`${h.hora}h — ${h.corridas.toLocaleString("pt-BR")} corridas · ${h.media_passageiros} pax`;
+    heat.appendChild(c);
+    const l=document.createElement("div");l.textContent=h.hora;hl.appendChild(l);
+  });
+  let grad="";for(let i=0;i<=10;i++)grad+=heatColor(i/10)+(i<10?",":"");
+  document.getElementById("legendScale").style.background=`linear-gradient(90deg,${grad})`;
+}
+
+// Tenta kpis.json; se falhar (file://), usa embutido.
+fetch("data/kpis.json").then(r=>r.ok?r.json():Promise.reject())
+  .then(d=>render(Object.assign({},EMBEDDED,d)))
+  .catch(()=>render(EMBEDDED));
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+# Dados (não versionar o lake; regenerável via make download/sample)
+data/landing/*
+data/bronze/
+data/silver/
+data/gold/
+!data/.gitkeep
+*.parquet
+*.crc
+_delta_log/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.env
+
+# Spark / Jupyter
+spark-warehouse/
+metastore_db/
+derby.log
+.ipynb_checkpoints/
+
+# Cobertura / cache de testes
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+
+# IDE / SO
+.idea/
+.vscode/
+.DS_Store
+
+# Notebooks de rascunho
+Untitled*.ipynb

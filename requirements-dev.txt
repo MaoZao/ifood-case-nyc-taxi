@@ -1,0 +1,11 @@
+-r requirements.txt
+# Qualidade de código e testes.
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=24.0.0
+isort>=5.12.0
+flake8>=6.1.0
+mypy>=1.8.0
+# Notebook/EDA.
+jupyterlab>=4.0.0
+matplotlib>=3.7.0

@@ -1,0 +1,29 @@
+%% Arquitetura Medallion — NYC Taxi Lakehouse (renderiza no GitHub)
+flowchart LR
+    subgraph SRC[Fonte]
+        TLC[("NYC TLC<br/>Yellow Taxi<br/>Jan-Mai 2023")]
+    end
+    subgraph LAKE[Data Lakehouse]
+        LZ["Landing<br/>(Parquet bruto)"]
+        BZ["🥉 Bronze<br/>Raw imutável + linhagem"]
+        SV["🥈 Silver<br/>5 colunas · tipagem · limpeza<br/>partição trip_month"]
+        GD["🥇 Gold<br/>agg_receita_mensal<br/>agg_passageiros_hora_maio<br/>trips"]
+    end
+    subgraph CONS[Consumo]
+        SQL["Spark SQL / PySpark"]
+        DASH["📊 Dashboard iFood"]
+        BI["📈 BI / ML"]
+    end
+
+    TLC -->|download idempotente| LZ
+    LZ --> BZ
+    BZ -->|PySpark transform| SV
+    SV -. "✓ Data Quality gate" .-> SV
+    SV -->|agregações| GD
+    GD --> SQL --> DASH
+    GD --> BI
+
+    classDef bronze fill:#CD7F32,color:#fff,stroke:#A9661F;
+    classDef silver fill:#B8BFC9,color:#fff,stroke:#8A93A0;
+    classDef gold fill:#F4C430,color:#5a4708,stroke:#D4A017;
+    class BZ bronze; class SV silver; class GD gold;

@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ifood-case-nyc-taxi"
+version = "1.0.0"
+description = "NYC Taxi Data Lakehouse (Medallion) em PySpark + Delta — Case Data Architect iFood"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Pedro Salomão" }]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+src_paths = ["src", "tests", "analysis"]
+
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E203", "W503"]
+exclude = [".git", "__pycache__", "data", ".venv", "build"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = false
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+addopts = "-p no:warnings -v"

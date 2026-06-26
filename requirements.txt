@@ -1,0 +1,8 @@
+# Runtime do pipeline (PySpark + Delta Lake).
+pyspark==3.5.1
+delta-spark==3.2.0
+pyyaml>=6.0
+# Geração de sample / suporte a I/O colunar local.
+pandas>=2.0.0
+numpy>=1.24.0
+pyarrow>=14.0.0

@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Set up Java (Spark requer JVM)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install -e .
+
+      - name: Lint (flake8) e tipos (mypy)
+        run: |
+          flake8 src tests analysis
+          mypy src || true   # mypy informativo, não bloqueia o merge
+
+      - name: Format check (black + isort)
+        run: |
+          black --check src tests analysis scripts
+          isort --check-only src tests analysis scripts
+
+      - name: Run tests
+        run: pytest --cov=ifood_case --cov-report=xml
+
+      - name: Smoke test do pipeline (dados sintéticos, Parquet)
+        env:
+          IFOOD_FORMAT: parquet
+        run: |
+          python scripts/generate_sample_data.py --out data/landing --scale 0.01
+          python -m ifood_case.main --stage all --no-delta
+          python analysis/answers.py --export /tmp/kpis.json
+          test -s /tmp/kpis.json && echo "KPIs gerados com sucesso."

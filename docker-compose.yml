@@ -1,0 +1,38 @@
+# Ambiente reproduzível: Spark+Jupyter para o pipeline, e MinIO opcional como
+# S3 local — demonstra o caminho para storage em nuvem sem custo.
+services:
+  spark:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ifood-spark
+    ports:
+      - "8888:8888"   # JupyterLab
+      - "4040:4040"   # Spark UI
+    volumes:
+      - ./:/home/jovyan/work
+    environment:
+      - IFOOD_CONFIG=/home/jovyan/work/conf/pipeline.yaml
+      - JUPYTER_ENABLE_LAB=yes
+    command: >
+      start-notebook.sh
+      --NotebookApp.token=''
+      --NotebookApp.notebook_dir=/home/jovyan/work
+
+  # S3 local opcional. Suba com:  docker compose --profile cloud up
+  minio:
+    image: minio/minio:latest
+    container_name: ifood-minio
+    profiles: ["cloud"]
+    ports:
+      - "9000:9000"   # API S3
+      - "9001:9001"   # Console
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+
+volumes:
+  minio-data:
