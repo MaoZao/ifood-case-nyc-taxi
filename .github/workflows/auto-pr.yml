@@ -1,22 +1,15 @@
 # ============================================================================
-# Auto-PR — abre (ou atualiza) uma Pull Request automaticamente ao enviar uma
-# branch de trabalho. Assim, basta `git push` da sua feature que a PR aparece.
+# Auto PR — cascata de promoção automática entre ambientes.
 #
-# Regra de destino (base):
-#   feature/** , fix/**   -> develop
-#   release/**            -> main      (promoção para produção)
-#   hotfix/**             -> main
+# Fluxo:
+#   feature/** / fix/**  →  PR para develop
+#   develop (merge)      →  PR para hom
+#   hom     (merge)      →  PR para main
+#   hotfix/**            →  PR para main (bypass)
 #
-# Pré-requisito (uma vez): criar um secret `AUTO_PR_TOKEN` com um PAT
-#   fine-grained (escopo neste repo) com permissões:
-#     - Contents: Read-only
-#     - Pull requests: Read and write
-#   Usar PAT (em vez do GITHUB_TOKEN padrão) é o que: (a) contorna o bloqueio do
-#   GitHub que impede Actions de abrir PRs e (b) faz o CI (evento pull_request)
-#   rodar na PR criada — PRs abertas pelo GITHUB_TOKEN não disparam outros
-#   workflows. Sem o secret, há fallback para github.token, mas aí a opção
-#   Settings > Actions > General > "Allow GitHub Actions to create and approve
-#   pull requests" precisa estar marcada e o CI não roda na PR.
+# A action é idempotente: se já existe PR aberta, não duplica.
+# Quando develop/hom recebem novos merges, a PR existente já reflete
+# as mudanças automaticamente (o GitHub atualiza o diff do branch).
 # ============================================================================
 name: Auto PR
 
@@ -25,48 +18,55 @@ on:
     branches:
       - "feature/**"
       - "fix/**"
-      - "release/**"
       - "hotfix/**"
+      - "develop"
+      - "hom"
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 jobs:
-  open-pr:
+  create-auto-pr:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Abrir ou atualizar a PR
-        env:
-          # Usa o PAT (AUTO_PR_TOKEN) quando configurado; fallback para o token padrão.
-          GH_TOKEN: ${{ secrets.AUTO_PR_TOKEN || github.token }}
+      - name: Resolve destination branch
+        id: dest
         run: |
-          set -euo pipefail
           BRANCH="${GITHUB_REF#refs/heads/}"
           case "$BRANCH" in
-            release/*|hotfix/*) BASE="main" ;;
-            *)                  BASE="develop" ;;
+            hotfix/*)  BASE="main"    ; LABEL="auto-pr;hotfix"    ;;
+            feature/*) BASE="develop" ; LABEL="auto-pr;feature"   ;;
+            fix/*)     BASE="develop" ; LABEL="auto-pr;fix"       ;;
+            develop)   BASE="hom"     ; LABEL="auto-pr;promotion" ;;
+            hom)       BASE="main"    ; LABEL="auto-pr;promotion" ;;
+            *)         echo "::notice::Branch '$BRANCH' sem regra de destino — ignorando." ; exit 0 ;;
           esac
-          echo "Branch '$BRANCH' -> base '$BASE'"
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
+          echo "::notice::$BRANCH → $BASE"
 
-          # Garante que a branch base existe antes de tentar abrir a PR.
-          if ! gh api "repos/${GITHUB_REPOSITORY}/branches/${BASE}" >/dev/null 2>&1; then
-            echo "::error::Branch base '$BASE' não existe no repositório. Crie-a (ou ajuste a regra de destino) e tente novamente."
-            exit 1
-          fi
+      - name: Create Auto Pull Request
+        if: steps.dest.outputs.base != ''
+        uses: diillson/auto-pull-request@v1.0.1
+        with:
+          source_branch: ""
+          destination_branch: ${{ steps.dest.outputs.base }}
+          pr_title: "Auto PR: ${{ github.ref_name }} → ${{ steps.dest.outputs.base }}"
+          pr_body: |
+            :robot: **Pull request automatico**
 
-          # Idempotente: se já existe PR aberta para a branch, não duplica.
-          if gh pr view "$BRANCH" --json number --jq .number >/dev/null 2>&1; then
-            echo "PR já existe para '$BRANCH' — nada a fazer."
-            exit 0
-          fi
+            - **Origem:** `${{ github.ref_name }}`
+            - **Destino:** `${{ steps.dest.outputs.base }}`
+            - **Evento:** `${{ github.event_name }}`
 
-          BODY=$(printf '🤖 PR aberta automaticamente a partir de `%s`.\n\n- **Base:** `%s`\n- CI (lint + testes + smoke) roda automaticamente nesta PR.\n- Preencha a descrição e o checklist do template antes do merge.' "$BRANCH" "$BASE")
-
-          # Falha de forma visível (execução vermelha) se a criação não funcionar.
-          if ! gh pr create --base "$BASE" --head "$BRANCH" --title "$BRANCH" --body "$BODY"; then
-            echo "::error::Não foi possível criar a PR. Verifique o secret AUTO_PR_TOKEN (PAT com 'Pull requests: write') ou a permissão de Actions para criar PRs."
-            exit 1
-          fi
+            CI (lint + testes + smoke) roda automaticamente nesta PR.
+            Preencha a descricao e o checklist do template antes do merge.
+          pr_label: ${{ steps.dest.outputs.label }}
+          pr_reviewer: ""
+          pr_assignee: ""
+          pr_draft: false
+          github_token: ${{ secrets.AUTO_PR_TOKEN || secrets.GITHUB_TOKEN }}
