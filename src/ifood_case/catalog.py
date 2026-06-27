@@ -50,8 +50,7 @@ def register_table(spark: SparkSession, db: str, spec: TableSpec, fmt: str = "de
     comment_sql = f" COMMENT '{spec.comment}'" if spec.comment else ""
     location = _normalize_location(spec.location)
     spark.sql(
-        f"CREATE TABLE IF NOT EXISTS {qualified} "
-        f"USING {fmt}{comment_sql} LOCATION '{location}'"
+        f"CREATE TABLE IF NOT EXISTS {qualified} " f"USING {fmt}{comment_sql} LOCATION '{location}'"
     )
     # MSCK / REFRESH garante que partições novas sejam descobertas.
     try:
@@ -67,24 +66,7 @@ def register_all(spark: SparkSession, cfg: Config) -> dict[str, str]:
     Retorna mapa ``{nome_logico: tabela_qualificada}`` para uso em queries SQL.
     """
     ensure_database(spark, cfg.database)
-    specs = [
-        TableSpec(
-            "bronze_trips",
-            cfg.paths.bronze,
-            "Camada raw: corridas NYC TLC + metadados de linhagem.",
-        ),
-        TableSpec(
-            "silver_trips",
-            cfg.paths.silver,
-            "Camada trusted: 5 colunas obrigatórias, tipada e particionada por trip_month.",
-        ),
-        TableSpec(
-            f"{cfg.paths.gold.rstrip('/')}/agg_receita_mensal".rsplit("/", 0)[0],
-            f"{cfg.paths.gold.rstrip('/')}/agg_receita_mensal",
-            "",
-        ),
-    ]
-    # Refatora para nomes lógicos limpos (sem path no name):
+    gold = cfg.paths.gold.rstrip("/")
     specs = [
         TableSpec("bronze_trips", cfg.paths.bronze, "Camada raw + lineage."),
         TableSpec(
@@ -94,17 +76,17 @@ def register_all(spark: SparkSession, cfg: Config) -> dict[str, str]:
         ),
         TableSpec(
             "gold_receita_mensal",
-            f"{cfg.paths.gold.rstrip('/')}/agg_receita_mensal",
+            f"{gold}/agg_receita_mensal",
             "Q1 — receita média por mês.",
         ),
         TableSpec(
             "gold_passageiros_hora_maio",
-            f"{cfg.paths.gold.rstrip('/')}/agg_passageiros_hora_maio",
+            f"{gold}/agg_passageiros_hora_maio",
             "Q2 — média de passageiros por hora (maio).",
         ),
         TableSpec(
             "gold_trips",
-            f"{cfg.paths.gold.rstrip('/')}/trips",
+            f"{gold}/trips",
             "Fato granular (5 colunas + trip_month) para SQL ad-hoc.",
         ),
     ]

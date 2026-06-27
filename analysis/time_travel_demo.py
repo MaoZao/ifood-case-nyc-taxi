@@ -88,9 +88,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Time Travel demo sobre a Silver.")
     ap.add_argument("--config", default=None)
     ap.add_argument("--version", type=int, help="Lê apenas esta versão.")
-    ap.add_argument(
-        "--diff", type=int, nargs=2, metavar=("V1", "V2"), help="Compara duas versões."
-    )
+    ap.add_argument("--diff", type=int, nargs=2, metavar=("V1", "V2"), help="Compara duas versões.")
     ap.add_argument("--limit", type=int, default=20, help="Linhas do histórico.")
     ap.add_argument("--export", default=None, help="Path JSON p/ dashboard.")
     args = ap.parse_args()

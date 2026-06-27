@@ -68,9 +68,8 @@ def build_spark(
         # Particionamento dinâmico evita reescrever partições intocadas.
         .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
         # 200 é o default; explícito para deixar claro o ponto de tuning.
-        .config("spark.sql.shuffle.partitions", "200").config(
-            "spark.sql.session.timeZone", "America/New_York"
-        )
+        .config("spark.sql.shuffle.partitions", "200")
+        .config("spark.sql.session.timeZone", "America/New_York")
         # Os Parquet reais do NYC TLC (2023+) gravam os timestamps com precisão
         # de NANOSSEGUNDOS (INT64 TIMESTAMP(NANOS)), que o Spark 3.5 recusa por
         # padrão. Esta flag lê o valor bruto como long; a Bronze o reconverte
