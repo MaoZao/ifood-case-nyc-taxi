@@ -131,6 +131,31 @@ make docker-up        # JupyterLab em http://localhost:8888 (Spark UI :4040)
 make docker-down
 ```
 
+### Opção C+ — Lakehouse no MinIO (S3 local)
+
+Grava as camadas **bronze/silver/gold no MinIO** (object storage S3-compatível),
+exercitando o conector `s3a` do Spark — o mesmo caminho de uma nuvem real, sem custo:
+
+```bash
+make cloud-up         # Spark + Jupyter + MinIO; cria o bucket ifood-lakehouse
+make cloud-demo       # amostra + pipeline + respostas -> s3a://ifood-lakehouse/...
+# ou, com dados REAIS do NYC TLC:
+make cloud-real       # download real + pipeline -> MinIO
+# Console do MinIO: http://localhost:9001  (login: minio / minio123)
+make docker-down
+```
+
+> ⚠️ **Grave sempre pelos alvos `cloud-*`.** O pipeline só escreve no MinIO quando
+> roda **dentro do container** `ifood-spark` (onde `IFOOD_ENV=cloud`). Rodar
+> `make pipeline`/`make demo` direto no host usa a config local e grava em `data/`
+> — **não** no MinIO. Os alvos `cloud-pipeline`/`cloud-demo`/`cloud-real` fazem
+> `docker exec` no container automaticamente.
+
+Como funciona: `IFOOD_ENV=cloud` seleciona [`conf/pipeline.cloud.yaml`](conf/pipeline.cloud.yaml)
+(paths `s3a://…`) e `IFOOD_S3_ENDPOINT` ativa o conector `s3a` em [`src/ifood_case/spark.py`](src/ifood_case/spark.py).
+A *landing* permanece local (download via `urllib`, portável); só o lakehouse curado
+vai para o S3. Variáveis em [`.env.example`](.env.example).
+
 ### Dashboard interativo (Streamlit)
 
 ```bash
@@ -171,9 +196,11 @@ make lint     # flake8 + mypy
 make format   # black + isort
 ```
 
+
 - **Transformações puras** testadas isoladamente com SparkSession local.
 - **Gate de Data Quality**: colunas obrigatórias, sem nulos, `total_amount > 0`,
   `passenger_count > 0`, `dropoff > pickup` — nada sobe para a Gold sem passar.
+  
 - **CI** roda tudo + um *smoke test* do pipeline ponta-a-ponta a cada push/PR.
 
 ## 🔁 CI/CD & Ambientes (Dev / Hom / Prd)
@@ -202,6 +229,28 @@ IFOOD_ENV=hom python -m ifood_case.main --stage all   # usa pipeline.hom.yaml
 - **`ci.yml`** — lint, tipos, testes e smoke test em PRs/pushes das 3 branches.
 - **`cd.yml`** — resolve a branch → vincula ao GitHub Environment (aplica as
   *protection rules*, incl. aprovação no `prd`) → deploy + *health check*.
+- **`auto-pr.yml`** — ao dar `git push` numa branch `feature/**`, `fix/**`,
+  `release/**` ou `hotfix/**`, abre a PR automaticamente (base `develop` para
+  feature/fix; `main` para release/hotfix). Idempotente: não duplica PR.
+
+### ⚙️ Setup do Auto-PR (uma vez)
+
+Para o `auto-pr.yml` conseguir abrir a PR **e** fazer o CI rodar nela, é preciso
+um **PAT fine-grained** guardado em secret (PRs abertas pelo `GITHUB_TOKEN`
+padrão são bloqueadas e não disparam o CI):
+
+1. **Criar o PAT** — GitHub → *Settings → Developer settings → Personal access
+   tokens → Fine-grained*, com escopo neste repositório e permissões:
+   - **Contents:** Read-only
+   - **Pull requests:** Read and write
+2. **Adicionar o secret** — repo → *Settings → Secrets and variables → Actions →
+   New repository secret*, nome **`AUTO_PR_TOKEN`**, valor = o PAT.
+3. **Propagar o workflow** — branches `feature/**` novas só trazem o `auto-pr.yml`
+   se ele estiver em `develop`/`main` (de onde são cortadas); garanta o merge.
+
+> Sem o `AUTO_PR_TOKEN` há fallback para o `GITHUB_TOKEN`, mas aí é obrigatório
+> marcar *Settings → Actions → General → "Allow GitHub Actions to create and
+> approve pull requests"* — e o CI **não** roda na PR criada.
 
 📖 Setup completo (Environments, branch protection, CODEOWNERS): [`docs/cicd.md`](docs/cicd.md).
 
