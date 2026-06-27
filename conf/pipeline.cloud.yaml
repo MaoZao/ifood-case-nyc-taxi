@@ -1,0 +1,27 @@
+# === Ambiente CLOUD (MinIO / S3) =============================================
+# Demonstra o lakehouse sobre object storage S3-compatível (MinIO local).
+# A landing permanece local (download via urllib, simples e portável); as camadas
+# curadas (bronze/silver/gold) são gravadas no bucket S3 via s3a://, lidas/escritas
+# nativamente pelo Spark (ver src/ifood_case/spark.py).
+#
+# Selecionado com:  IFOOD_ENV=cloud  +  IFOOD_S3_ENDPOINT apontando para o MinIO
+# (ex.: http://minio:9000). Suba o MinIO com:  docker compose --profile cloud up
+env: cloud
+
+months:
+  - "2023-01"
+  - "2023-02"
+  - "2023-03"
+  - "2023-04"
+  - "2023-05"
+
+base_url: "https://d37ci6vzurychx.cloudfront.net/trip-data"
+
+storage_format: delta
+partition_column: trip_month
+
+paths:
+  landing: "data/landing"
+  bronze: "s3a://ifood-lakehouse/bronze"
+  silver: "s3a://ifood-lakehouse/silver"
+  gold: "s3a://ifood-lakehouse/gold"

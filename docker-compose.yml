@@ -12,7 +12,13 @@ services:
     volumes:
       - ./:/home/jovyan/work
     environment:
-      - IFOOD_CONFIG=/home/jovyan/work/conf/pipeline.yaml
+      # Modo local por padrão; defina IFOOD_ENV=cloud + IFOOD_S3_ENDPOINT (ver
+      # .env) para gravar o lakehouse no MinIO via conf/pipeline.cloud.yaml.
+      - IFOOD_ENV=${IFOOD_ENV:-local}
+      - IFOOD_S3_ENDPOINT=${IFOOD_S3_ENDPOINT:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-minio}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-minio123}
+      - IFOOD_S3_PATH_STYLE=true
       - JUPYTER_ENABLE_LAB=yes
     command: >
       start-notebook.sh
@@ -33,6 +39,20 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - minio-data:/data
+
+  # Cria o bucket do lakehouse assim que o MinIO sobe (s3a não cria bucket).
+  createbuckets:
+    image: minio/mc:latest
+    container_name: ifood-createbuckets
+    profiles: ["cloud"]
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 minio minio123; do echo 'aguardando MinIO...'; sleep 2; done;
+      mc mb -p local/ifood-lakehouse;
+      echo 'bucket ifood-lakehouse pronto';
+      "
 
 volumes:
   minio-data:
