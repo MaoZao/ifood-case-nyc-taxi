@@ -1,12 +1,15 @@
 # ============================================================================
-# Auto PR — cria automaticamente um Pull Request ao fazer push em branches
-# de trabalho. Basta `git push` da sua feature que a PR aparece.
+# Auto PR — cascata de promoção automática entre ambientes.
 #
-# Regra de destino (base):
-#   feature/**  -> develop
-#   fix/**      -> develop
-#   release/**  -> main
-#   hotfix/**   -> main
+# Fluxo:
+#   feature/** / fix/**  →  PR para develop
+#   develop (merge)      →  PR para hom
+#   hom     (merge)      →  PR para main
+#   hotfix/**            →  PR para main (bypass)
+#
+# A action é idempotente: se já existe PR aberta, não duplica.
+# Quando develop/hom recebem novos merges, a PR existente já reflete
+# as mudanças automaticamente (o GitHub atualiza o diff do branch).
 # ============================================================================
 name: Auto PR
 
@@ -15,8 +18,9 @@ on:
     branches:
       - "feature/**"
       - "fix/**"
-      - "release/**"
       - "hotfix/**"
+      - "develop"
+      - "hom"
 
 permissions:
   contents: write
@@ -34,12 +38,19 @@ jobs:
         run: |
           BRANCH="${GITHUB_REF#refs/heads/}"
           case "$BRANCH" in
-            release/*|hotfix/*) echo "base=main" >> "$GITHUB_OUTPUT" ;;
-            *)                  echo "base=develop" >> "$GITHUB_OUTPUT" ;;
+            hotfix/*)  BASE="main"    ; LABEL="auto-pr;hotfix"    ;;
+            feature/*) BASE="develop" ; LABEL="auto-pr;feature"   ;;
+            fix/*)     BASE="develop" ; LABEL="auto-pr;fix"       ;;
+            develop)   BASE="hom"     ; LABEL="auto-pr;promotion" ;;
+            hom)       BASE="main"    ; LABEL="auto-pr;promotion" ;;
+            *)         echo "::notice::Branch '$BRANCH' sem regra de destino — ignorando." ; exit 0 ;;
           esac
-          echo "Branch '$BRANCH' -> base '$(grep base "$GITHUB_OUTPUT" | cut -d= -f2)'"
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
+          echo "::notice::$BRANCH → $BASE"
 
       - name: Create Auto Pull Request
+        if: steps.dest.outputs.base != ''
         uses: diillson/auto-pull-request@v1.0.1
         with:
           source_branch: ""
@@ -48,14 +59,14 @@ jobs:
           pr_body: |
             :robot: **Pull request automatico**
 
-            - **Branch de origem:** `${{ github.ref_name }}`
-            - **Branch de destino:** `${{ steps.dest.outputs.base }}`
+            - **Origem:** `${{ github.ref_name }}`
+            - **Destino:** `${{ steps.dest.outputs.base }}`
             - **Evento:** `${{ github.event_name }}`
 
             CI (lint + testes + smoke) roda automaticamente nesta PR.
             Preencha a descricao e o checklist do template antes do merge.
-          pr_label: "auto-pr;feature"
+          pr_label: ${{ steps.dest.outputs.label }}
           pr_reviewer: ""
           pr_assignee: ""
           pr_draft: false
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.AUTO_PR_TOKEN || secrets.GITHUB_TOKEN }}
