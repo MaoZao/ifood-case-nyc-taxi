@@ -54,7 +54,13 @@ def _s3a_settings() -> tuple[dict[str, str], list[str]]:
     return configs, list(_S3A_PACKAGES)
 
 
-def build_spark(app_name: str = "ifood-nyc-taxi", delta: bool = True) -> SparkSession:
+def build_spark(
+    app_name: str = "ifood-nyc-taxi",
+    delta: bool = True,
+    warehouse_dir: str | None = None,
+) -> SparkSession:
+    # Warehouse local p/ Hive Metastore embedded (Derby). Em Databricks, ignorado.
+    warehouse = warehouse_dir or os.getenv("IFOOD_WAREHOUSE", "data/_warehouse")
     builder = (
         SparkSession.builder.appName(app_name)
         # Snappy = bom equilíbrio compressão/CPU para colunar.
@@ -62,14 +68,16 @@ def build_spark(app_name: str = "ifood-nyc-taxi", delta: bool = True) -> SparkSe
         # Particionamento dinâmico evita reescrever partições intocadas.
         .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
         # 200 é o default; explícito para deixar claro o ponto de tuning.
-        .config("spark.sql.shuffle.partitions", "200").config(
-            "spark.sql.session.timeZone", "America/New_York"
-        )
+        .config("spark.sql.shuffle.partitions", "200")
+        .config("spark.sql.session.timeZone", "America/New_York")
         # Os Parquet reais do NYC TLC (2023+) gravam os timestamps com precisão
         # de NANOSSEGUNDOS (INT64 TIMESTAMP(NANOS)), que o Spark 3.5 recusa por
         # padrão. Esta flag lê o valor bruto como long; a Bronze o reconverte
         # para TimestampType (ver pipeline/bronze.py).
         .config("spark.sql.legacy.parquet.nanosAsLong", "true")
+        # Catalog/metastore para CREATE TABLE — permite SELECT * FROM ifood.silver_trips.
+        .config("spark.sql.warehouse.dir", warehouse)
+        .config("spark.sql.catalogImplementation", "hive")
     )
 
     # Storage S3-compatível (MinIO/S3): aplica configs do conector s3a quando
@@ -90,15 +98,26 @@ def build_spark(app_name: str = "ifood-nyc-taxi", delta: bool = True) -> SparkSe
                 "spark.sql.catalog.spark_catalog",
                 "org.apache.spark.sql.delta.catalog.DeltaCatalog",
             )
-            spark = configure_spark_with_delta_pip(
-                builder, extra_packages=s3_packages
-            ).getOrCreate()
-            logger.info("SparkSession criada com suporte a Delta Lake.")
+            try:
+                spark = (
+                    configure_spark_with_delta_pip(builder, extra_packages=s3_packages)
+                    .enableHiveSupport()
+                    .getOrCreate()
+                )
+            except Exception:  # pragma: no cover - Hive jars ausentes em alguns envs
+                spark = configure_spark_with_delta_pip(
+                    builder, extra_packages=s3_packages
+                ).getOrCreate()
+                logger.warning("Hive Metastore indisponível; usando catalog in-memory.")
+            logger.info("SparkSession criada com suporte a Delta Lake. Warehouse=%s", warehouse)
             return spark
         except Exception as exc:  # pragma: no cover - depende do ambiente
             logger.warning("Delta indisponível (%s). Usando Parquet.", exc)
 
     if s3_packages:
         builder = builder.config("spark.jars.packages", ",".join(s3_packages))
-    spark = builder.getOrCreate()
+    try:
+        spark = builder.enableHiveSupport().getOrCreate()
+    except Exception:  # pragma: no cover
+        spark = builder.getOrCreate()
     return spark

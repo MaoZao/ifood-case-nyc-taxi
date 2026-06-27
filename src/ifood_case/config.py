@@ -66,6 +66,8 @@ class Config:
     storage_format: str = "delta"  # delta | parquet
     partition_column: str = "trip_month"
     env: str = "local"
+    database: str = "ifood"  # nome do schema/db no Hive Metastore
+    warehouse_dir: str = "data/_warehouse"
 
     @property
     def months_int(self) -> List[int]:
@@ -95,5 +97,9 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
         storage_format=os.getenv("IFOOD_FORMAT", raw.get("storage_format", "delta")),
         partition_column=raw.get("partition_column", "trip_month"),
         env=os.getenv("IFOOD_ENV", raw.get("env", "local")),
+        database=os.getenv("IFOOD_DATABASE", raw.get("database", "ifood")),
+        warehouse_dir=_expand(
+            os.getenv("IFOOD_WAREHOUSE", raw.get("warehouse_dir", "data/_warehouse"))
+        ),
     )
     return cfg

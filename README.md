@@ -87,12 +87,15 @@ com *fallback* embutido para funcionarem mesmo sem o pipeline rodado.
 │  ├─ transformations.py      #   Transformações PURAS e testáveis (Silver)
 │  ├─ quality.py              #   Contratos de Data Quality (gate)
 │  ├─ ingestion.py            #   Download idempotente do NYC TLC
-│  ├─ main.py                 #   Orquestrador CLI (bronze→silver→gold)
+│  ├─ main.py                 #   Orquestrador CLI (bronze→silver→gold + catalog)
+│  ├─ catalog.py              #   Registro das tabelas no Metastore (SQL nativo)
 │  └─ pipeline/               #   Camadas Medallion
 │     ├─ bronze.py · silver.py · gold.py
+│     └─ silver_incremental.py   # MERGE INTO + Change Data Feed
 ├─ analysis/                  # Respostas do case
 │  ├─ sql/                    #   Q1 e Q2 em SQL puro
 │  ├─ answers.py              #   Q1 e Q2 em PySpark (API + Spark SQL)
+│  ├─ time_travel_demo.py     #   Demo de Time Travel sobre a Silver (Delta)
 │  └─ notebooks/              #   EDA (compatível com Databricks)
 ├─ dashboard/                 # 📊 Dashboards: app.py (Streamlit) + index.html + kpis.json
 ├─ tests/                     # pytest (transformações, quality, analytics)
@@ -170,6 +173,63 @@ Após `make answers`, o dashboard reflete os números atuais (sample ou dados re
 1. Importe `analysis/notebooks/01_exploratory_analysis.py` no Workspace.
 2. Faça upload dos Parquet para o DBFS e ajuste `IFOOD_SILVER`/paths.
 3. Rode as células — SQL e PySpark lado a lado.
+
+## ⚡ Delta Lake em uso real
+
+Além do *medallion* básico, o projeto exercita as features que tornam o Delta
+superior a Parquet puro — o "porquê" do Lakehouse:
+
+### Catalog (metastore) — consumir as tabelas por nome SQL
+
+```bash
+make catalog          # registra Bronze/Silver/Gold no Hive Metastore (Derby local)
+```
+
+Depois disso, qualquer cliente SQL (Spark, Databricks, dbt) consome as camadas
+sem precisar conhecer paths físicos:
+
+```sql
+SELECT trip_month, ROUND(AVG(total_amount), 2) AS receita_media
+FROM ifood.silver_trips
+GROUP BY trip_month;
+```
+
+As tabelas são **externas** — `DROP TABLE` apaga apenas o metadado; os arquivos
+Delta seguem intactos no path original. Em Databricks, basta trocar `database`
+no [`conf/pipeline.yaml`](conf/pipeline.yaml) por um catalog do Unity Catalog
+(`main.ifood`, por exemplo).
+
+### Pipeline incremental (MERGE INTO)
+
+```bash
+make pipeline-inc     # Silver via MERGE com chave natural (idempotente)
+```
+
+Em vez de `mode("overwrite")` (full refresh), aplica apenas o delta:
+
+- **Chave de upsert:** `(VendorID, tpep_pickup_datetime, tpep_dropoff_datetime)`
+- **Idempotente:** rerodar a mesma janela **não** duplica linhas
+- **Suporta late-arriving data** sem reescrever a tabela inteira
+- **Habilita Change Data Feed** — Gold pode propagar só o delta via `table_changes()`
+
+Implementação em [`src/ifood_case/pipeline/silver_incremental.py`](src/ifood_case/pipeline/silver_incremental.py).
+
+### Time Travel — auditoria e debug
+
+```bash
+make time-travel      # histórico + KPI por versão -> dashboard/data/history.json
+# ou direto:
+python analysis/time_travel_demo.py --version 3
+python analysis/time_travel_demo.py --diff 1 3   # compara KPI Q1 entre v1 e v3
+```
+
+Mostra:
+- `DESCRIBE HISTORY` — auditoria completa (quem mudou, quando, métricas da operação)
+- `VERSION AS OF` / `TIMESTAMP AS OF` — consulta versões passadas sem reprocessar
+- **Diff de KPI entre versões** — quantifica o impacto de um deploy na Silver
+
+Útil para: investigar regressões, validar deploys, rollback rápido com
+`RESTORE TABLE silver TO VERSION AS OF N`.
 
 ## 🔍 As perguntas, em código
 
