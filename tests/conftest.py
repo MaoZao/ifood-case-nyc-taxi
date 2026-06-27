@@ -9,7 +9,10 @@ from pyspark.sql import SparkSession
 
 
 @pytest.fixture(scope="session")
-def spark() -> SparkSession:
+def spark(tmp_path_factory) -> SparkSession:
+    # Warehouse num tmp dir session-scoped: catalog/CREATE TABLE funcionam sem
+    # poluir o repo nem precisar de Hive Metastore externo.
+    warehouse = tmp_path_factory.mktemp("warehouse")
     spark = (
         SparkSession.builder.master("local[2]")
         .appName("ifood-tests")
@@ -20,6 +23,7 @@ def spark() -> SparkSession:
         # interpretado no fuso do SO na escrita e relido noutro fuso por
         # F.hour/F.month, deslocando hora/mês (flaky conforme a máquina).
         .config("spark.sql.session.timeZone", "UTC")
+        .config("spark.sql.warehouse.dir", str(warehouse))
         .getOrCreate()
     )
     yield spark

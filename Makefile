@@ -1,7 +1,8 @@
 # ============================================================================
 # iFood Case — NYC Taxi Lakehouse | atalhos de desenvolvimento
 # ============================================================================
-.PHONY: help install sample download pipeline answers dashboard test lint format \
+.PHONY: help install sample download pipeline pipeline-inc catalog time-travel \
+        answers dashboard test lint format \
         docker-up docker-down cloud-up cloud-pipeline cloud-demo cloud-real jupyter clean
 
 help:  ## Lista os comandos disponíveis
@@ -19,6 +20,15 @@ download:  ## Baixa os dados REAIS do NYC TLC (Jan-Mai/2023)
 
 pipeline:  ## Roda o pipeline completo (bronze -> silver -> gold)
 	python -m ifood_case.main --stage all
+
+pipeline-inc:  ## Silver em modo INCREMENTAL (MERGE INTO) — exige Delta
+	python -m ifood_case.main --stage silver --mode incremental
+
+catalog:  ## Registra Bronze/Silver/Gold no metastore (queries por nome SQL)
+	python -m ifood_case.main --stage catalog
+
+time-travel:  ## Demo de Time Travel sobre a Silver
+	python analysis/time_travel_demo.py --export dashboard/data/history.json
 
 answers:  ## Executa as respostas do case e exporta KPIs para o dashboard
 	python analysis/answers.py --export dashboard/data/kpis.json
