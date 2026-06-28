@@ -16,10 +16,29 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 
 from pyspark.sql import SparkSession
 
 logger = logging.getLogger(__name__)
+
+# Raiz do repositório (…/src/ifood_case/spark.py -> parents[2]).
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _anchor(path: str) -> str:
+    """Resolve um caminho local relativo contra a raiz do repo (forward slashes).
+
+    Mantém caminhos absolutos e URIs (``file://``, ``s3a://`` …) intactos. Isso
+    garante que o Hive Metastore embedded e o warehouse fiquem SEMPRE no mesmo
+    lugar, independentemente do ``cwd`` do processo — sem isso, rodar o pipeline
+    da raiz e um notebook de ``analysis/notebooks/`` usaria metastores distintos
+    e o schema ``ifood`` ficaria "invisível" (SCHEMA_NOT_FOUND).
+    """
+    if "://" in path or Path(path).is_absolute():
+        return path.replace("\\", "/")
+    return (_REPO_ROOT / path).as_posix()
+
 
 # Conector S3A: versões alinhadas ao Hadoop do PySpark 3.5 (Hadoop 3.3.4).
 _S3A_PACKAGES = [
@@ -60,7 +79,10 @@ def build_spark(
     warehouse_dir: str | None = None,
 ) -> SparkSession:
     # Warehouse local p/ Hive Metastore embedded (Derby). Em Databricks, ignorado.
-    warehouse = warehouse_dir or os.getenv("IFOOD_WAREHOUSE", "data/_warehouse")
+    # Ancorado na raiz do repo: o catálogo registrado pelo pipeline fica visível
+    # a qualquer sessão (ex.: notebooks), seja qual for o cwd.
+    warehouse = _anchor(warehouse_dir or os.getenv("IFOOD_WAREHOUSE", "data/_warehouse"))
+    metastore_db = (_REPO_ROOT / "metastore_db").as_posix()
     builder = (
         SparkSession.builder.appName(app_name)
         # Snappy = bom equilíbrio compressão/CPU para colunar.
@@ -78,6 +100,12 @@ def build_spark(
         # Catalog/metastore para CREATE TABLE — permite SELECT * FROM ifood.silver_trips.
         .config("spark.sql.warehouse.dir", warehouse)
         .config("spark.sql.catalogImplementation", "hive")
+        # Derby (metastore embedded) ancorado em caminho absoluto: todas as sessões
+        # compartilham o MESMO catálogo, independentemente do cwd do processo.
+        .config(
+            "spark.hadoop.javax.jdo.option.ConnectionURL",
+            f"jdbc:derby:;databaseName={metastore_db};create=true",
+        )
     )
 
     # Storage S3-compatível (MinIO/S3): aplica configs do conector s3a quando
