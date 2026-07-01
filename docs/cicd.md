@@ -9,7 +9,7 @@ homologação espelhando produção e **aprovação manual** antes do go-live.
 | Branch | Ambiente | Deploy | Config (`IFOOD_ENV`) | Formato |
 |--------|----------|--------|----------------------|---------|
 | `develop` | **Dev** | automático no push | `conf/pipeline.dev.yaml` | Parquet (feedback rápido) |
-| `release/*` | **Hom** | automático após CI | `conf/pipeline.hom.yaml` | Delta (espelha prd) |
+| `hom` | **Hom** | automático após CI | `conf/pipeline.hom.yaml` | Delta (espelha prd) |
 | `main` | **Prd** | **aprovação manual** | `conf/pipeline.prd.yaml` | Delta |
 
 > O pipeline escolhe a config automaticamente pela variável `IFOOD_ENV`
@@ -22,17 +22,17 @@ feature/minha-feature
         │  PR + CI (lint, testes, smoke)
         ▼
      develop ───────────────►  deploy automático em DEV
-        │  PR
+        │  PR (auto)
         ▼
-   release/x.y  ─────────────►  deploy automático em HOM (validação/UAT)
-        │  PR
+       hom  ─────────────────►  deploy automático em HOM (validação/UAT)
+        │  PR (auto)
         ▼
        main  ── aprovação ───►  deploy em PRD (required reviewers)
                 manual
 ```
 
 Hotfix: branch `hotfix/*` a partir de `main`, PR de volta para `main` e
-*back-merge* em `develop`/`release`.
+*back-merge* em `develop`/`hom`.
 
 ## 3. Diagrama
 
@@ -40,9 +40,9 @@ Hotfix: branch `hotfix/*` a partir de `main`, PR de volta para `main` e
 flowchart LR
     F[feature/*] -->|PR + CI| D[develop]
     D -->|deploy auto| DEV[(Ambiente DEV)]
-    D -->|PR| R[release/*]
+    D -->|PR auto| R[hom]
     R -->|deploy auto| HOM[(Ambiente HOM)]
-    R -->|PR| M[main]
+    R -->|PR auto| M[main]
     M -->|aprovação manual| PRD[(Ambiente PRD)]
     classDef e fill:#EA1D2C,color:#fff,stroke:#B71522;
     class DEV,HOM,PRD e;
@@ -63,10 +63,10 @@ No **`prd`**, habilite as *protection rules*:
 - ✅ **Deployment branches**: apenas `main`.
 - ⏱️ *Wait timer* opcional (ex.: 5 min) e *prevent self-review*.
 
-No **`hom`**, opcionalmente *required reviewers* (QA) e branches `release/*`.
+No **`hom`**, opcionalmente *required reviewers* (QA) e deployment branch `hom`.
 
 ### 4.2 Branch protection — `Settings > Branches`
-Para `main` e `develop` (e `release/*` via padrão):
+Para `main`, `develop` e `hom`:
 
 - ✅ Require a pull request before merging (+ 1 aprovação).
 - ✅ Require status checks to pass → selecione o job **CI / quality**.
@@ -76,14 +76,14 @@ Para `main` e `develop` (e `release/*` via padrão):
 
 ## 5. Workflows
 
-- **`.github/workflows/ci.yml`** — roda em PRs e pushes de `develop`, `release/*`
+- **`.github/workflows/ci.yml`** — roda em PRs e pushes de `develop`, `hom`
   e `main`: lint, type-check, testes e *smoke test* do pipeline.
 - **`.github/workflows/cd.yml`** — resolve o ambiente pela branch, vincula o job
   ao **GitHub Environment** correspondente (aplicando as protection rules) e
   executa o deploy + *health check* pós-deploy.
-- **`.github/workflows/auto-pr.yml`** — ao dar `git push` de uma branch
-  `feature/**`, `fix/**`, `release/**` ou `hotfix/**`, **abre a Pull Request
-  automaticamente** (base `develop`; `release/*` e `hotfix/*` vão para `main`).
+- **`.github/workflows/auto-pr.yml`** — cascata de promoção: push em
+  `feature/**`/`fix/**` abre PR para `develop`; merge em `develop` abre PR para
+  `hom`; merge em `hom` abre PR para `main`; `hotfix/**` vai direto para `main`.
   É idempotente (não duplica PR existente).
 
   > Habilite uma vez: **Settings > Actions > General > Workflow permissions** →
@@ -105,6 +105,6 @@ IFOOD_ENV=prd  python -m ifood_case.main --stage all   # usa pipeline.prd.yaml
 
 ```bash
 git checkout -b develop && git push -u origin develop
-git checkout -b release/1.0 && git push -u origin release/1.0
+git checkout -b hom && git push -u origin hom
 # main já é a default; configure as protections conforme a seção 4.
 ```

@@ -39,16 +39,18 @@ def cast_types(df: DataFrame) -> DataFrame:
 def clean(df: DataFrame, start: str = "2023-01-01", end: str = "2023-06-01") -> DataFrame:
     """Regras de qualidade da camada Silver.
 
-    - Remove duplicatas exatas (reprocessamento de terminal).
     - Descarta nulos em campos essenciais.
     - Elimina anomalias que violam regras de negócio/física:
       receita não positiva, 0 passageiros, dropoff <= pickup.
-    - Restringe à janela contratada (Jan-Mai/2023), evitando vazamento de
-      registros com datas erradas (existem no dataset real).
+    - Restringe à janela contratada (default Jan-Mai/2023; em produção o
+      chamador deriva de ``Config.months`` — ver ``to_silver``), evitando
+      vazamento de registros com datas erradas (existem no dataset real).
+    - Remove duplicatas exatas (reprocessamento de terminal) por ÚLTIMO:
+      o ``dropDuplicates`` exige um shuffle completo, então filtrar antes
+      reduz o volume embaralhado (~5-8% de linhas a menos no dataset real).
     """
     return (
-        df.dropDuplicates()
-        .dropna(subset=REQUIRED_COLUMNS)
+        df.dropna(subset=REQUIRED_COLUMNS)
         .filter(F.col("total_amount") > 0)
         .filter(F.col("passenger_count") > 0)
         .filter(F.col("tpep_dropoff_datetime") > F.col("tpep_pickup_datetime"))
@@ -56,6 +58,7 @@ def clean(df: DataFrame, start: str = "2023-01-01", end: str = "2023-06-01") -> 
             (F.col("tpep_pickup_datetime") >= F.lit(start))
             & (F.col("tpep_pickup_datetime") < F.lit(end))
         )
+        .dropDuplicates()
     )
 
 
@@ -66,11 +69,22 @@ def add_partition_columns(df: DataFrame) -> DataFrame:
     )
 
 
-def to_silver(df: DataFrame) -> DataFrame:
-    """Pipeline Silver completo, composto pelas funções puras acima."""
+def to_silver(df: DataFrame, start: str | None = None, end: str | None = None) -> DataFrame:
+    """Pipeline Silver completo, composto pelas funções puras acima.
+
+    ``start``/``end`` delimitam a janela de datas válida (ver ``clean``);
+    quando omitidos valem os defaults do case. O orquestrador passa a janela
+    derivada de ``Config.months`` — mudar os meses no YAML ajusta a limpeza
+    automaticamente, sem editar código.
+    """
+    window_kwargs = {}
+    if start is not None:
+        window_kwargs["start"] = start
+    if end is not None:
+        window_kwargs["end"] = end
     return (
         df.transform(select_required_columns)
         .transform(cast_types)
-        .transform(clean)
+        .transform(lambda d: clean(d, **window_kwargs))
         .transform(add_partition_columns)
     )

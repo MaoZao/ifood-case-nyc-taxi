@@ -26,7 +26,8 @@ def test_q2_passageiros_hora_maio(spark, raw_df):
 
 def test_q2_only_may(spark, raw_df):
     silver = to_silver(raw_df)
-    out = passageiros_por_hora_maio(silver)
-    # Garante que nenhum mês != 5 vazou para a resposta da Q2.
-    assert out.filter("pickup_hour < 0").count() == 0
-    assert out.count() == 1
+    out = passageiros_por_hora_maio(silver).collect()
+    # Garante que nenhum mês != 5 vazou: a corrida boa de JANEIRO é às 8h —
+    # se vazasse, a hora 8 apareceria no resultado.
+    hours = {r["pickup_hour"] for r in out}
+    assert hours == {18}

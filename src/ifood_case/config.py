@@ -74,6 +74,21 @@ class Config:
     def months_int(self) -> List[int]:
         return [int(m.split("-")[1]) for m in self.months]
 
+    @property
+    def window(self) -> tuple[str, str]:
+        """Janela [start, end) de datas válidas derivada de ``months``.
+
+        Ex.: months=[2023-01 … 2023-05] -> ("2023-01-01", "2023-06-01").
+        Fonte única de verdade: mudar os meses no YAML ajusta a limpeza da
+        Silver automaticamente (nada de janelas hardcoded no código).
+        """
+        first = min(self.months)
+        last = max(self.months)
+        start = f"{first}-01"
+        y, m = (int(p) for p in last.split("-"))
+        end = f"{y + 1}-01-01" if m == 12 else f"{y}-{m + 1:02d}-01"
+        return start, end
+
 
 def _expand(value: str) -> str:
     """Permite ${VAR} e ~ nos caminhos do YAML."""
