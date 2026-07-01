@@ -49,9 +49,13 @@ def register_table(spark: SparkSession, db: str, spec: TableSpec, fmt: str = "de
     qualified = f"{db}.{spec.name}"
     comment_sql = f" COMMENT '{spec.comment}'" if spec.comment else ""
     location = _normalize_location(spec.location)
-    spark.sql(
-        f"CREATE TABLE IF NOT EXISTS {qualified} " f"USING {fmt}{comment_sql} LOCATION '{location}'"
-    )
+    # DROP + CREATE (em vez de IF NOT EXISTS) torna o registro AUTORITATIVO: a
+    # LOCATION passa a refletir SEMPRE o ambiente atual (local vs s3a://...),
+    # corrigindo registros obsoletos — ex.: um metastore compartilhado entre host
+    # e container com caminhos de outro SO. Tabela externa: DROP remove só os
+    # metadados, nunca os arquivos.
+    spark.sql(f"DROP TABLE IF EXISTS {qualified}")
+    spark.sql(f"CREATE TABLE {qualified} USING {fmt}{comment_sql} LOCATION '{location}'")
     # MSCK / REFRESH garante que partições novas sejam descobertas.
     try:
         spark.sql(f"REFRESH TABLE {qualified}")
