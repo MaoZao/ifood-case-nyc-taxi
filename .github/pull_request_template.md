@@ -5,7 +5,7 @@
 ## Ambiente alvo
 
 - [ ] `develop` → **Dev**
-- [ ] `release/*` → **Hom**
+- [ ] `hom` → **Hom**
 - [ ] `main` → **Prd** (requer aprovação no Environment `prd`)
 
 ## Checklist

@@ -71,24 +71,35 @@ def run(config_path: str | None, export: str | None) -> None:
     spark = build_spark(delta=cfg.storage_format == "delta")
     spark.sparkContext.setLogLevel("WARN")
 
-    silver = spark.read.format(cfg.storage_format).load(cfg.paths.silver)
+    # Cache: Q1, média global, equivalência SQL e Q2 varrem a mesma Silver —
+    # materializa uma vez, reutiliza em todos os jobs da sessão.
+    silver = spark.read.format(cfg.storage_format).load(cfg.paths.silver).cache()
 
     print("\n========== Q1: média de total_amount por mês ==========")
     q1 = q1_dataframe_api(silver)
+    q1_rows = q1.collect()  # coletado UMA vez; reutilizado no assert e no export
     q1.show()
     media_global = silver.select(F.round(F.avg("total_amount"), 2)).first()[0]
     print(f">> Média global do período (Jan-Mai/2023): US$ {media_global}")
 
     # Confirma equivalência DataFrame API == Spark SQL.
-    assert q1.collect() == q1_spark_sql(spark, silver).collect(), "Divergência API vs SQL!"
+    assert q1_rows == q1_spark_sql(spark, silver).collect(), "Divergência API vs SQL!"
     print(">> DataFrame API e Spark SQL retornam resultados idênticos. ✓")
 
     print("\n========== Q2: média de passageiros por hora (maio) ==========")
     q2 = q2_dataframe_api(silver)
+    q2_rows = q2.collect()
     q2.show(24)
 
     if export:
         payload = {
+            # Meta REAL da execução: sem ela, o dashboard exibiria o meta do
+            # fallback sintético ao lado de KPIs reais (números incoerentes).
+            "meta": {
+                "linhas_silver": sum(r["qtd_corridas"] for r in q1_rows),
+                "periodo": f"{min(cfg.months)} a {max(cfg.months)}",
+                "nota": "KPIs gerados por analysis/answers.py sobre a camada Silver.",
+            },
             "q1_receita_mensal": [
                 {
                     "mes_num": r["trip_month"],
@@ -96,7 +107,7 @@ def run(config_path: str | None, export: str | None) -> None:
                     "corridas": r["qtd_corridas"],
                     "receita_media_usd": r["receita_media_usd"],
                 }
-                for r in q1.collect()
+                for r in q1_rows
             ],
             "q1_media_global_usd": media_global,
             "q2_passageiros_hora_maio": [
@@ -105,7 +116,7 @@ def run(config_path: str | None, export: str | None) -> None:
                     "corridas": r["qtd_corridas"],
                     "media_passageiros": r["media_passageiros"],
                 }
-                for r in q2.collect()
+                for r in q2_rows
             ],
         }
         with open(export, "w", encoding="utf-8") as fh:

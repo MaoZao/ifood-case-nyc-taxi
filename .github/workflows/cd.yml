@@ -3,7 +3,7 @@
 #
 # Mapeamento branch -> ambiente:
 #   develop      -> dev   (deploy automático)
-#   release/**   -> hom   (deploy automático após CI)
+#   hom          -> hom   (deploy automático após CI; release/** também aceito)
 #   main         -> prd   (deploy com APROVAÇÃO MANUAL no GitHub Environment)
 #
 # Os GitHub Environments (Settings > Environments) carregam:
@@ -16,7 +16,7 @@ name: CD
 
 on:
   push:
-    branches: [develop, "release/**", main]
+    branches: [develop, hom, "release/**", main]
   workflow_dispatch:        # permite deploy manual sob demanda
 
 concurrency:
@@ -34,7 +34,7 @@ jobs:
         run: |
           REF="${GITHUB_REF#refs/heads/}"
           if [ "$REF" = "main" ]; then ENV=prd
-          elif [[ "$REF" == release/* ]]; then ENV=hom
+          elif [ "$REF" = "hom" ] || [[ "$REF" == release/* ]]; then ENV=hom
           elif [ "$REF" = "develop" ]; then ENV=dev
           else ENV=dev
           fi

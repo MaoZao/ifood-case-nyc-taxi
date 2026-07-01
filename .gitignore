@@ -45,3 +45,7 @@ Untitled*.ipynb
 
 # Cowork/Claude internal
 .claude/
+
+# Material do case / notas de preparação (não fazem parte da entrega)
+Case_iFood_-_Data_Architecture_*.pdf
+Arquitetura de Dados iFood com PySpark.txt

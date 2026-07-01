@@ -56,10 +56,13 @@ def register_table(spark: SparkSession, db: str, spec: TableSpec, fmt: str = "de
     # metadados, nunca os arquivos.
     spark.sql(f"DROP TABLE IF EXISTS {qualified}")
     spark.sql(f"CREATE TABLE {qualified} USING {fmt}{comment_sql} LOCATION '{location}'")
-    # MSCK / REFRESH garante que partições novas sejam descobertas.
+    # Delta é auto-descritivo; tabela externa PARQUET particionada precisa de
+    # MSCK REPAIR para o metastore descobrir as partições hive-style no path.
     try:
+        if fmt != "delta":
+            spark.sql(f"MSCK REPAIR TABLE {qualified}")
         spark.sql(f"REFRESH TABLE {qualified}")
-    except Exception:  # pragma: no cover - REFRESH em Parquet puro pode não existir
+    except Exception:  # pragma: no cover - depende do formato/metastore
         pass
     logger.info("[catalog] registrada %s -> %s", qualified, spec.location)
 

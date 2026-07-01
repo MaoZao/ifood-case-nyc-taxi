@@ -26,10 +26,7 @@ line_length = 100
 src_paths = ["src", "tests", "analysis"]
 extend_skip_glob = ["*/.ipynb_checkpoints/*", "analysis/notebooks/*"]
 
-[tool.flake8]
-max-line-length = 100
-extend-ignore = ["E203", "W503"]
-exclude = [".git", "__pycache__", "data", ".venv", "build"]
+# flake8 não lê pyproject.toml — a configuração real vive em `.flake8`.
 
 [tool.mypy]
 python_version = "3.10"

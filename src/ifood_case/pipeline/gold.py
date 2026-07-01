@@ -14,7 +14,6 @@ Tabelas geradas:
 from __future__ import annotations
 
 import logging
-import os
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
@@ -50,9 +49,13 @@ def passageiros_por_hora_maio(silver: DataFrame) -> DataFrame:
     )
 
 
-def _write(df: DataFrame, cfg: Config, name: str) -> None:
-    path = os.path.join(cfg.paths.gold, name)
-    df.write.mode("overwrite").format(cfg.storage_format).save(path)
+def _write(df: DataFrame, cfg: Config, name: str, partition_by: str | None = None) -> None:
+    # Join manual com "/" — os.path.join no Windows produziria "s3a://...\name".
+    path = f"{cfg.paths.gold.rstrip('/')}/{name}"
+    writer = df.write.mode("overwrite").format(cfg.storage_format)
+    if partition_by:
+        writer = writer.partitionBy(partition_by)
+    writer.save(path)
     logger.info("[gold] %s -> %s", name, path)
 
 
@@ -67,6 +70,7 @@ def run(spark: SparkSession, cfg: Config) -> dict[str, DataFrame]:
         _write(df, cfg, name)
 
     # Fato granular com as 5 colunas exigidas, exposto para consumo SQL ad-hoc.
+    # Particionado como a Silver: queries por mês fazem pruning também aqui.
     _write(
         silver.select(
             "VendorID",
@@ -78,6 +82,7 @@ def run(spark: SparkSession, cfg: Config) -> dict[str, DataFrame]:
         ),
         cfg,
         "trips",
+        partition_by=cfg.partition_column,
     )
     logger.info("[gold] concluída")
     return tables

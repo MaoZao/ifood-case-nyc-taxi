@@ -38,11 +38,11 @@ jobs:
         run: |
           BRANCH="${GITHUB_REF#refs/heads/}"
           case "$BRANCH" in
-            hotfix/*)  BASE="main"    ; LABEL="auto-pr;hotfix"    ;;
-            feature/*) BASE="develop" ; LABEL="auto-pr;feature"   ;;
-            fix/*)     BASE="develop" ; LABEL="auto-pr;fix"       ;;
-            develop)   BASE="hom"     ; LABEL="auto-pr;promotion" ;;
-            hom)       BASE="main"    ; LABEL="auto-pr;promotion" ;;
+            hotfix/*)  BASE="main"    ; LABEL="auto-pr,hotfix"    ;;
+            feature/*) BASE="develop" ; LABEL="auto-pr,feature"   ;;
+            fix/*)     BASE="develop" ; LABEL="auto-pr,fix"       ;;
+            develop)   BASE="hom"     ; LABEL="auto-pr,promotion" ;;
+            hom)       BASE="main"    ; LABEL="auto-pr,promotion" ;;
             *)         echo "::notice::Branch '$BRANCH' sem regra de destino — ignorando." ; exit 0 ;;
           esac
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
