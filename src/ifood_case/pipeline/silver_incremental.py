@@ -5,9 +5,16 @@ Diferenças vs `silver.py` (full refresh):
   - Não reescreve a Silver inteira; aplica apenas o delta (linhas novas/alteradas).
   - Usa chave natural (VendorID + pickup + dropoff) para idempotência: rerodar a
     mesma janela de tempo NÃO gera duplicatas.
+  - A condição do MERGE inclui a coluna de partição (`trip_month`): o Delta faz
+    *partition pruning* e só lê/reescreve os meses presentes no source, em vez
+    de escanear a tabela inteira a cada merge.
   - Habilita Change Data Feed (CDF) na escrita — Gold pode então propagar apenas
     o delta via `table_changes()`.
   - Suporta backfill de meses isolados sem reprocessar 5 meses inteiros.
+
+Em produção real, o source seria filtrado por um watermark persistido (última
+`_ingested_at` processada, guardada em uma tabela de controle) — aqui o source
+é a Bronze completa e a idempotência fica por conta da chave natural do MERGE.
 
 Pré-requisito: storage_format == "delta". Em Parquet puro não existe MERGE.
 """
@@ -17,7 +24,6 @@ from __future__ import annotations
 import logging
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql import functions as F
 
 from ..config import Config
 from ..quality import run_checks
@@ -59,7 +65,10 @@ def _merge_into(spark: SparkSession, silver_new: DataFrame, cfg: Config) -> dict
     from delta.tables import DeltaTable  # type: ignore
 
     target = DeltaTable.forPath(spark, cfg.paths.silver)
-    on_clause = " AND ".join(f"t.{k} = s.{k}" for k in MERGE_KEYS)
+    # A coluna de partição na condição permite ao Delta descartar (pruning) as
+    # partições não afetadas — sem ela, todo MERGE escaneia a tabela inteira.
+    keys = [*MERGE_KEYS, cfg.partition_column]
+    on_clause = " AND ".join(f"t.{k} = s.{k}" for k in keys)
 
     logger.info("[silver-inc] MERGE on %s", on_clause)
     (
@@ -95,19 +104,18 @@ def run(spark: SparkSession, cfg: Config) -> dict[str, int]:
     logger.info("[silver-inc] lendo bronze: %s", cfg.paths.bronze)
     bronze = spark.read.format(cfg.storage_format).load(cfg.paths.bronze)
 
-    # Pega só o que chegou ou foi alterado desde a última execução. Em produção,
-    # usaríamos um watermark persistido (última `_ingested_at` processada). Aqui,
-    # exemplificamos com o _ingested_at mais recente — idempotente em reruns.
-    if "_ingested_at" in bronze.columns:
-        latest = bronze.agg(F.max("_ingested_at")).first()[0]
-        logger.info("[silver-inc] processando bronze até _ingested_at=%s", latest)
+    start, end = cfg.window
+    silver_new = to_silver(bronze, start=start, end=end)
+    silver_new.persist()
 
-    silver_new = to_silver(bronze)
-    run_checks(silver_new, raise_on_fail=True)
+    try:
+        run_checks(silver_new, raise_on_fail=True)
 
-    if not _table_exists(spark, cfg.paths.silver):
-        _initial_write(spark, silver_new, cfg)
-        n = silver_new.count()
-        return {"inserted": n, "updated": 0, "deleted": 0, "source_rows": n}
+        if not _table_exists(spark, cfg.paths.silver):
+            _initial_write(spark, silver_new, cfg)
+            n = silver_new.count()
+            return {"inserted": n, "updated": 0, "deleted": 0, "source_rows": n}
 
-    return _merge_into(spark, silver_new, cfg)
+        return _merge_into(spark, silver_new, cfg)
+    finally:
+        silver_new.unpersist()

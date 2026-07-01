@@ -54,6 +54,50 @@ silver.select(
 
 # COMMAND ----------
 # MAGIC %md
+# MAGIC ### 1b. Outliers de `total_amount` — a média de Q1 é confiável?
+# MAGIC O máximo observado (milhares de US$) sugere cauda direita longa. Os
+# MAGIC percentis mostram o quão extremos são esses valores, e a comparação
+# MAGIC média × mediana quantifica a sensibilidade da resposta de Q1 a eles.
+
+# COMMAND ----------
+pcts = silver.approxQuantile("total_amount", [0.5, 0.9, 0.99, 0.999], 0.001)
+print(f"p50={pcts[0]:.2f}  p90={pcts[1]:.2f}  p99={pcts[2]:.2f}  p99.9={pcts[3]:.2f}")
+# Média x mediana por mês: se divergirem muito, a média (pedida no case) deve
+# ser lida com a cauda em mente — mantemos a média por ser o que o case pede,
+# mas registramos a distorção.
+spark.sql("""
+    SELECT trip_month AS mes,
+           ROUND(AVG(total_amount), 2)                              AS media,
+           ROUND(PERCENTILE_APPROX(total_amount, 0.5), 2)           AS mediana,
+           ROUND(AVG(total_amount) - PERCENTILE_APPROX(total_amount, 0.5), 2) AS distorcao_cauda
+    FROM silver_trips GROUP BY trip_month ORDER BY trip_month
+""").show()
+
+# COMMAND ----------
+# MAGIC %md
+# MAGIC ### 1c. Ocupação por dia da semana × VendorID
+# MAGIC Duas dimensões baratas que contextualizam Q2: fim de semana × dia útil
+# MAGIC muda o perfil de ocupação, e o VendorID é a única dimensão categórica
+# MAGIC disponível na Silver.
+
+# COMMAND ----------
+spark.sql("""
+    SELECT dayofweek(tpep_pickup_datetime) AS dia_semana,     -- 1=Dom … 7=Sáb
+           COUNT(*) AS corridas,
+           ROUND(AVG(passenger_count), 3) AS media_pax
+    FROM silver_trips WHERE trip_month = 5
+    GROUP BY dia_semana ORDER BY dia_semana
+""").show()
+
+spark.sql("""
+    SELECT VendorID, COUNT(*) AS corridas,
+           ROUND(AVG(passenger_count), 3) AS media_pax,
+           ROUND(AVG(total_amount), 2)    AS ticket_medio
+    FROM silver_trips GROUP BY VendorID ORDER BY corridas DESC
+""").show()
+
+# COMMAND ----------
+# MAGIC %md
 # MAGIC ## 2. Q1 — Média de `total_amount` por mês (toda a frota)
 
 # COMMAND ----------
@@ -108,9 +152,16 @@ plt.show()
 
 # COMMAND ----------
 # MAGIC %md
-# MAGIC ## 5. Conclusões
-# MAGIC - **Q1:** o ticket médio cresce de forma consistente ao longo de 2023,
-# MAGIC   sinalizando sazonalidade/reajuste — insumo para previsão de receita.
-# MAGIC - **Q2:** a ocupação por corrida é estável (~1,4–1,7 passageiros), com
-# MAGIC   leve elevação em horários sociais (almoço/noite) — útil para
-# MAGIC   dimensionamento de frota e pricing dinâmico.
+# MAGIC ## 5. Conclusões (dados REAIS, Jan–Mai/2023 — ver outputs acima)
+# MAGIC - **Q1:** o ticket médio sobe de Jan a Mai com um leve **recuo em
+# MAGIC   fevereiro** — coerente com o mês mais curto e clima; a tendência de
+# MAGIC   alta retoma a partir de março. A média mensal é puxada por uma cauda
+# MAGIC   direita longa (p99.9 ≫ mediana, ver §1b): para previsão de receita
+# MAGIC   vale acompanhar média E mediana.
+# MAGIC - **Q2:** a ocupação por corrida varia ~**1,26–1,46** ao longo do dia,
+# MAGIC   com padrão claro: **máximos de madrugada (0h–3h)** — grupos voltando
+# MAGIC   de bares/eventos dividem o táxi — e **mínimo às 5h–6h** (~1,26),
+# MAGIC   quando predominam commuters viajando sozinhos. O *volume* de corridas,
+# MAGIC   por outro lado, tem pico no fim de tarde (17h–18h). Ocupação e demanda
+# MAGIC   têm perfis diferentes — insumo distinto para pricing dinâmico
+# MAGIC   (ocupação) vs dimensionamento de frota (volume).

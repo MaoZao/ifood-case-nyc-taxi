@@ -272,11 +272,11 @@ antes do go-live).
 | Branch | Ambiente | Deploy | Config |
 |--------|----------|--------|--------|
 | `develop` | **Dev** | automático | `conf/pipeline.dev.yaml` (Parquet) |
-| `release/*` | **Hom** | automático (pós-CI) | `conf/pipeline.hom.yaml` (Delta) |
+| `hom` | **Hom** | automático (pós-CI) | `conf/pipeline.hom.yaml` (Delta) |
 | `main` | **Prd** | **aprovação manual** | `conf/pipeline.prd.yaml` (Delta) |
 
 ```
-feature/* ─PR→ develop ─→ DEV ─PR→ release/* ─→ HOM ─PR→ main ─aprovação→ PRD
+feature/* ─PR→ develop ─→ DEV ─PR→ hom ─→ HOM ─PR→ main ─aprovação→ PRD
 ```
 
 O pipeline seleciona a config do ambiente automaticamente via `IFOOD_ENV`
@@ -289,9 +289,9 @@ IFOOD_ENV=hom python -m ifood_case.main --stage all   # usa pipeline.hom.yaml
 - **`ci.yml`** — lint, tipos, testes e smoke test em PRs/pushes das 3 branches.
 - **`cd.yml`** — resolve a branch → vincula ao GitHub Environment (aplica as
   *protection rules*, incl. aprovação no `prd`) → deploy + *health check*.
-- **`auto-pr.yml`** — ao dar `git push` numa branch `feature/**`, `fix/**`,
-  `release/**` ou `hotfix/**`, abre a PR automaticamente (base `develop` para
-  feature/fix; `main` para release/hotfix). Idempotente: não duplica PR.
+- **`auto-pr.yml`** — cascata de promoção automática: push em `feature/**`/`fix/**`
+  abre PR para `develop`; merge em `develop` abre PR para `hom`; merge em `hom`
+  abre PR para `main`; `hotfix/**` vai direto para `main`. Idempotente: não duplica PR.
 
 ### ⚙️ Setup do Auto-PR (uma vez)
 

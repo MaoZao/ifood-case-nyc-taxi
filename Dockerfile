@@ -1,5 +1,7 @@
 # Imagem base com Spark + Jupyter já compilados (evita instalar Java/Hadoop na mão).
-FROM jupyter/pyspark-notebook:spark-3.5.0
+# Spark da imagem = pyspark do requirements.txt (3.5.1): o pip instala o pyspark
+# por cima do Spark da imagem, e versões divergentes causam erros sutis de RPC.
+FROM quay.io/jupyter/pyspark-notebook:spark-3.5.1
 
 USER root
 WORKDIR /home/jovyan/work

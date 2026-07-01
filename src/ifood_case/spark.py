@@ -81,7 +81,7 @@ def build_spark(
     # Warehouse local p/ Hive Metastore embedded (Derby). Em Databricks, ignorado.
     # Ancorado na raiz do repo: o catálogo registrado pelo pipeline fica visível
     # a qualquer sessão (ex.: notebooks), seja qual for o cwd.
-    warehouse = _anchor(warehouse_dir or os.getenv("IFOOD_WAREHOUSE", "data/_warehouse"))
+    warehouse = _anchor(warehouse_dir or os.getenv("IFOOD_WAREHOUSE") or "data/_warehouse")
     metastore_db = (_REPO_ROOT / "metastore_db").as_posix()
     builder = (
         SparkSession.builder.appName(app_name)
@@ -90,7 +90,13 @@ def build_spark(
         # Particionamento dinâmico evita reescrever partições intocadas.
         .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
         # 200 é o default; explícito para deixar claro o ponto de tuning.
+        # Com AQE (abaixo), é só o teto INICIAL: o Spark coalesce em runtime.
         .config("spark.sql.shuffle.partitions", "200")
+        # AQE já é default no Spark 3.5; explícito por documentação. Coalesce
+        # de partições pós-shuffle evita tasks minúsculas (e small files) após
+        # os filtros da Silver; tratamento de skew protege joins/MERGE.
+        .config("spark.sql.adaptive.enabled", "true")
+        .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
         .config("spark.sql.session.timeZone", "America/New_York")
         # Os Parquet reais do NYC TLC (2023+) gravam os timestamps com precisão
         # de NANOSSEGUNDOS (INT64 TIMESTAMP(NANOS)), que o Spark 3.5 recusa por

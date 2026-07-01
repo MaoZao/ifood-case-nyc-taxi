@@ -56,3 +56,11 @@ def test_to_silver_end_to_end(raw_df):
     assert out.count() == 2
     assert set(REQUIRED_COLUMNS).issubset(set(out.columns))
     assert {"trip_month", "pickup_hour"}.issubset(set(out.columns))
+
+
+def test_to_silver_respects_custom_window(raw_df):
+    # Janela restrita a janeiro: a corrida boa de maio deve ficar de fora.
+    out = to_silver(raw_df, start="2023-01-01", end="2023-02-01")
+    rows = out.collect()
+    assert len(rows) == 1
+    assert rows[0]["trip_month"] == 1

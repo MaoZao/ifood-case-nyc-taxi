@@ -8,7 +8,7 @@ reais (curva de demanda horária, sazonalidade de receita, nulos em
 passenger_count, outliers de total_amount), permitindo demonstrar a solução
 ponta-a-ponta de forma reprodutível.
 
-Para os dados REAIS, use:  python -m ifood_case.ingestion.download
+Para os dados REAIS, use:  python -m ifood_case.ingestion  (ou `make download`)
 
 Saída: arquivos parquet (se pyarrow disponível) ou csv na landing zone,
 um por mês: yellow_tripdata_2023-0{1..5}.(parquet|csv)
