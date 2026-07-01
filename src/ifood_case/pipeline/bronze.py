@@ -52,7 +52,10 @@ def _fix_nanos_timestamps(df: DataFrame, spark: SparkSession) -> DataFrame:
     session_tz = spark.conf.get("spark.sql.session.timeZone") or "UTC"
     for fld in df.schema.fields:
         if "datetime" in fld.name.lower() and isinstance(fld.dataType, LongType):
-            micros = (F.col(fld.name) / 1000).cast("long")
+            # Divisão INTEIRA (div): nanos desde a época (~1.7e18) excedem os 53
+            # bits de mantissa de um double — `/ 1000` em float arredondaria o
+            # microssegundo em alguns registros.
+            micros = F.expr(f"`{fld.name}` div 1000")
             df = df.withColumn(
                 fld.name,
                 F.to_utc_timestamp(F.timestamp_micros(micros), session_tz),
@@ -79,13 +82,21 @@ def read_landing(spark: SparkSession, cfg: Config) -> DataFrame:
     dfs = [_read_one(spark, p) for p in paths]
     df = reduce(lambda a, b: a.unionByName(b, allowMissingColumns=True), dfs)
     df = _fix_nanos_timestamps(df, spark)
-    return df.withColumn("_source_file", F.input_file_name()).withColumn(
-        "_ingested_at", F.current_timestamp()
+    return (
+        df.withColumn("_source_file", F.input_file_name()).withColumn(
+            "_ingested_at", F.current_timestamp()
+        )
+        # Mês de origem extraído do NOME do arquivo (não do conteúdo): lineage
+        # imutável + coluna de partição da Bronze.
+        .withColumn("_source_month", F.regexp_extract(F.input_file_name(), r"(\d{4}-\d{2})", 1))
     )
 
 
 def write_bronze(df: DataFrame, cfg: Config) -> None:
-    writer = df.write.mode("overwrite").format(cfg.storage_format)
+    # Particionada por mês de origem: com partitionOverwriteMode=dynamic (ver
+    # spark.py), reprocessar UM mês reescreve só aquela partição — backfill
+    # mensal barato, como promete a arquitetura Medallion.
+    writer = df.write.mode("overwrite").format(cfg.storage_format).partitionBy("_source_month")
     logger.info("[bronze] gravando %s em %s", cfg.storage_format, cfg.paths.bronze)
     writer.save(cfg.paths.bronze)
 

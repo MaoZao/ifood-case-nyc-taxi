@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [develop, "release/**", main]
+    branches: [develop, hom, "release/**", main]
   pull_request:
-    branches: [develop, "release/**", main]
+    branches: [develop, hom, "release/**", main]
 
 jobs:
   quality:
@@ -32,8 +32,8 @@ jobs:
 
       - name: Lint (flake8) e tipos (mypy)
         run: |
-          flake8 src tests analysis
-          mypy src || true   # mypy informativo, não bloqueia o merge
+          flake8 src tests analysis scripts
+          mypy src   # gate real: erro de tipo bloqueia o merge
 
       - name: Format check (black + isort)
         run: |

@@ -21,9 +21,11 @@ flexibilidade analítica.
 
 ### Bronze — imutabilidade
 Ponto de entrada **imutável**. Lê os Parquet originais e persiste sem
-transformação, adicionando apenas `_source_file` e `_ingested_at`. Se uma regra
-da Silver se provar errada no futuro, o histórico intocado permite
-reprocessamento total (**backfilling**).
+transformação, adicionando apenas metadados de linhagem (`_source_file`,
+`_ingested_at`, `_source_month`). Particionada por `_source_month` (derivado do
+nome do arquivo): com *dynamic partition overwrite*, reprocessar um mês
+reescreve só aquela partição. Se uma regra da Silver se provar errada no futuro,
+o histórico intocado permite reprocessamento total (**backfilling**).
 
 ### Silver — domínio transacional confiável
 É aqui que o **PySpark** faz o trabalho pesado (exigência do case). Aplica:
@@ -71,10 +73,29 @@ O mesmo pipeline roda:
 - **Orquestração**: a CLI por `--stage` mapeia 1:1 para tasks de um DAG
   (`bronze >> silver >> gold`) em Airflow ou Databricks Workflows.
 
-## 5. Escalabilidade
+## 5. Performance
+
+Decisões de performance já embutidas no pipeline:
+
+- **DQ em passada única**: todas as expectativas viram expressões de um único
+  `df.agg(...)` — 1 job Spark, em vez de um `count()` por checagem (que
+  recomputaria a linhagem, incluindo o shuffle do dedup, N vezes).
+- **`persist()` entre gate e write** (Silver): o job de DQ materializa o
+  resultado e a escrita o reutiliza — a linhagem completa roda 1 vez.
+- **Filtros antes do `dropDuplicates`**: reduz o volume que entra no shuffle
+  do dedup (~5–8% a menos no dataset real).
+- **`repartition(trip_month)` antes do write**: 1 arquivo por partição, em vez
+  de até `shuffle.partitions × meses` small files.
+- **MERGE com coluna de partição na condição**: *partition pruning* no
+  incremental — só os meses presentes no source são lidos/reescritos.
+- **AQE explícito** + partição dinâmica: coalesce de shuffle em runtime e
+  overwrite apenas das partições tocadas.
+
+## 6. Escalabilidade
 
 Para a volumetria real (~16M linhas/mês), as alavancas são: particionamento +
 `OPTIMIZE`/Z-Order (ou **Liquid Clustering** em tabelas novas no Databricks),
 `spark.sql.shuffle.partitions` ajustado ao cluster, *Change Data Feed* para
 incrementais na Gold, e compactação de small files. O design já está pronto para
-trocar leitura *full* por incremental por data de ingestão.
+trocar leitura *full* por incremental por data de ingestão (watermark persistido
+sobre `_ingested_at`).

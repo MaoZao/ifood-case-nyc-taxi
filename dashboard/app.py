@@ -64,13 +64,18 @@ EMBEDDED = {
 }
 
 
-@st.cache_data
+@st.cache_data(ttl=60)
 def load_data() -> dict:
-    """Lê kpis.json e funde com o fallback embutido (JSON sobrescreve)."""
-    data = dict(EMBEDDED)
+    """Lê kpis.json (fonte de verdade) ou cai no fallback embutido.
+
+    Sem merge parcial: misturar o meta sintético do fallback com KPIs reais do
+    JSON exibiria estatísticas incoerentes na mesma tela.
+    """
     if DATA_PATH.exists():
         with open(DATA_PATH, encoding="utf-8") as fh:
-            data.update(json.load(fh))
+            data = json.load(fh)
+    else:
+        data = dict(EMBEDDED)
     # Garante a normalização de `mes` mesmo quando o JSON traz só mes_num.
     for row in data["q1_receita_mensal"]:
         row.setdefault("mes", MESES.get(row.get("mes_num"), str(row.get("mes_num"))))
@@ -306,7 +311,12 @@ fig2.update_layout(
     xaxis=dict(title="hora do dia", dtick=1, showgrid=False),
     yaxis=dict(
         title="passageiros / corrida",
-        range=[1.4, 1.8],
+        # Range derivado dos DADOS (com folga) — um range fixo calibrado no
+        # sample sintético cortava pontos dos dados reais (ex.: 1.26 às 5h).
+        range=[
+            df2["media_passageiros"].min() - 0.05,
+            df2["media_passageiros"].max() + 0.05,
+        ],
         showgrid=True,
         gridcolor="#eef0f3",
     ),

@@ -8,7 +8,7 @@ A solução precisa de um caminho de promoção controlado entre **Dev**, **Hom*
 gate antes de produção.
 
 ## Decisão
-Adotar **branches por ambiente** (`develop`→Dev, `release/*`→Hom, `main`→Prd) com
+Adotar **branches por ambiente** (`develop`→Dev, `hom`→Hom, `main`→Prd) com
 **GitHub Environments**. Produção exige **aprovação manual** (*required
 reviewers*). A configuração de cada ambiente é um overlay YAML
 (`conf/pipeline.<env>.yaml`), selecionado automaticamente pela variável
