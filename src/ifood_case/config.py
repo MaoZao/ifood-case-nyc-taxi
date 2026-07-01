@@ -27,6 +27,7 @@ REQUIRED_COLUMNS: List[str] = [
 
 CONF_DIR = Path(__file__).resolve().parents[2] / "conf"
 DEFAULT_CONFIG_PATH = CONF_DIR / "pipeline.yaml"
+_REPO_ROOT = CONF_DIR.parent  # raiz do repositório
 
 
 def resolve_config_path() -> Path:
@@ -79,6 +80,17 @@ def _expand(value: str) -> str:
     return os.path.expandvars(os.path.expanduser(value))
 
 
+def _resolve_fs_path(value: str) -> str:
+    """Como ``_expand``, mas ancora caminhos de filesystem LOCAIS relativos na
+    raiz do repo. URIs (``s3a://``, ``file://``, ``dbfs:/`` …) e caminhos já
+    absolutos passam intactos. Garante que o pipeline e os catálogos apontem
+    sempre para o MESMO lugar, independentemente do ``cwd`` (ex.: notebooks)."""
+    v = _expand(value)
+    if "://" in v or v.startswith("dbfs:") or Path(v).is_absolute():
+        return v
+    return (_REPO_ROOT / v).as_posix()
+
+
 def load_config(path: str | os.PathLike | None = None) -> Config:
     cfg_path = Path(path) if path else resolve_config_path()
     with open(cfg_path, "r", encoding="utf-8") as fh:
@@ -89,10 +101,10 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
         months=raw["months"],
         base_url=os.getenv("IFOOD_BASE_URL", raw["base_url"]),
         paths=Paths(
-            landing=_expand(os.getenv("IFOOD_LANDING", paths["landing"])),
-            bronze=_expand(os.getenv("IFOOD_BRONZE", paths["bronze"])),
-            silver=_expand(os.getenv("IFOOD_SILVER", paths["silver"])),
-            gold=_expand(os.getenv("IFOOD_GOLD", paths["gold"])),
+            landing=_resolve_fs_path(os.getenv("IFOOD_LANDING", paths["landing"])),
+            bronze=_resolve_fs_path(os.getenv("IFOOD_BRONZE", paths["bronze"])),
+            silver=_resolve_fs_path(os.getenv("IFOOD_SILVER", paths["silver"])),
+            gold=_resolve_fs_path(os.getenv("IFOOD_GOLD", paths["gold"])),
         ),
         storage_format=os.getenv("IFOOD_FORMAT", raw.get("storage_format", "delta")),
         partition_column=raw.get("partition_column", "trip_month"),
